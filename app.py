@@ -927,7 +927,6 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
 
-                    # Probability distribution
                     st.subheader("Probability Distribution")
 
                     if probabilities is not None:
