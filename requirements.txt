@@ -2,9 +2,10 @@ streamlit
 numpy
 matplotlib
 seaborn
-opencv-python-headless
+cv2
 scikit-learn
 pandas
 plotly
 Pillow
 joblib
+tqdm
