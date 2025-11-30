@@ -1,5 +1,4 @@
 streamlit
-numpy
 matplotlib
 seaborn
 opencv-python-headless
@@ -9,3 +8,4 @@ plotly
 Pillow
 joblib
 tqdm
+numpy
