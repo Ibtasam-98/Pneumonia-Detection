@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
@@ -674,7 +675,7 @@ def main():
 
             ### How to Use:
 
-            1. **Train Model Tab**: Train new models or load existing ones
+            1. **Train Model Tab**: Train new models on your dataset
             2. **Prediction Tab**: Upload X-ray images for classification
             3. **View Results**: See detailed analysis and confidence scores
 
@@ -705,23 +706,10 @@ def main():
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            if st.button("Check for Pre-trained Models", use_container_width=True):
-                if os.path.exists('chest_xray_models.pkl'):
-                    st.success("Pre-trained models found!")
-                    try:
-                        predictor.load_models('chest_xray_models.pkl')
-                        st.session_state.models_loaded = True
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error loading models: {e}")
-                else:
-                    st.warning("No pre-trained models found. Please train models first.")
-
-        with col2:
             if st.button("Train Default Models", use_container_width=True):
                 st.info("Please go to the 'Train Model' tab to train models with your preferred settings.")
 
-        with col3:
+        with col2:
             if st.button("Try Prediction", use_container_width=True):
                 st.info("Please go to the 'Prediction' tab to upload and analyze X-ray images.")
 
@@ -744,27 +732,6 @@ def main():
             train_svm = st.checkbox("Train SVM", value=True)
             train_knn = st.checkbox("Train KNN", value=True)
             train_rf = st.checkbox("Train Random Forest", value=True)
-
-            # Load existing models
-            st.subheader("Model Management")
-            model_file = st.text_input("Model File", "chest_xray_models.pkl")
-
-            col_load, col_save = st.columns(2)
-            with col_load:
-                if st.button("Load Models"):
-                    try:
-                        predictor.load_models(model_file)
-                        st.session_state.models_loaded = True
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error loading models: {e}")
-
-            with col_save:
-                if st.button("Save Models"):
-                    try:
-                        predictor.save_models(model_file)
-                    except Exception as e:
-                        st.error(f"Error saving models: {e}")
 
         # Training section
         st.markdown("---")
@@ -856,8 +823,8 @@ def main():
         st.markdown('<h2 class="sub-header">Pneumonia Prediction</h2>', unsafe_allow_html=True)
 
         if not predictor.models:
-            st.warning("No models loaded. Please train or load models first.")
-            st.info("Go to the 'Train Model' tab to train new models or load existing ones.")
+            st.warning("No models trained. Please train models first.")
+            st.info("Go to the 'Train Model' tab to train new models.")
         else:
             col1, col2 = st.columns([1, 1])
 
