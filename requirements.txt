@@ -1,8 +1,8 @@
 streamlit
 numpy
 matplotlib
-seaborn
-cv2
+seaborn>
+opencv-python-headless
 scikit-learn
 pandas
 plotly
