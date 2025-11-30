@@ -2,7 +2,7 @@ streamlit
 numpy
 matplotlib
 seaborn
-cv2
+opencv-python-headless
 scikit-learn
 pandas
 plotly
