@@ -687,7 +687,7 @@ def main():
         with col2:
             st.image(
                 "https://www.mdpi.com/children/children-11-00122/article_deploy/html/images/children-11-00122-g006-550.jpg",
-                caption="Sample Chest X-Ray Image", use_column_width=True)
+                caption="Sample Chest X-Ray Image", use_container_width=True)
 
             st.markdown("""
             ### Model Specifications:
@@ -872,7 +872,7 @@ def main():
                 if uploaded_file is not None:
                     # Display uploaded image
                     image = Image.open(uploaded_file)
-                    st.image(image, caption="Uploaded X-Ray Image", use_column_width=True)
+                    st.image(image, caption="Uploaded X-Ray Image", use_container_width=True)
 
                     # Model selection
                     st.subheader("Model Selection")
