@@ -35,7 +35,6 @@ class ChestXRayMLPredictor:
         self.le = LabelEncoder()
         self.training_history = {}
         self.visualization_dir = "visualizations"
-        self.is_trained = False
 
         # Create visualization directory
         os.makedirs(self.visualization_dir, exist_ok=True)
@@ -246,7 +245,7 @@ class ChestXRayMLPredictor:
 
         st.success(f"Final feature dimensions:")
         st.success(f"  Training set: {X_train_final.shape}")
-        st.success(f"  Test set: {X_test_final.shape}")
+        st.success(f"  Test set: {X_train_final.shape}")
 
         return X_train_final, X_test_final, y_train, y_test
 
@@ -323,8 +322,7 @@ class ChestXRayMLPredictor:
 
         self.models['knn'] = best_knn
         self.training_history['knn'] = {
-            'best_params': grid_search.best_params_ if cv_tuning else {'n_neighbors': 5, 'weights': 'uniform',
-                                                                       'metric': 'euclidean'},
+            'best_params': grid_search.best_params_ if cv_tuning else {'n_neighbors': 5, 'weights': 'uniform', 'metric': 'euclidean'},
             'cv_score': grid_search.best_score_ if cv_tuning else "Not calculated"
         }
         return best_knn
@@ -596,53 +594,8 @@ class ChestXRayMLPredictor:
         self.img_height = save_data['img_height']
         self.img_width = save_data['img_width']
         self.class_names = save_data['class_names']
-        self.is_trained = True
         st.success(f"Models loaded from {filename}")
         st.info(f"Available models: {list(self.models.keys())}")
-
-    def train_default_models(self, data_dir='dataset/chest_xray'):
-        """Train models with default settings for deployment"""
-        try:
-            # Debug dataset first
-            with st.spinner("Checking dataset structure..."):
-                if not self.debug_dataset_structure(data_dir):
-                    st.error("Dataset structure issue detected. Please check your dataset path.")
-                    return False
-
-            # Load and preprocess data
-            with st.spinner("Loading and preprocessing images..."):
-                features, labels = self.load_and_preprocess_images(data_dir)
-                if features is None:
-                    return False
-                X_train, X_test, y_train, y_test = self.preprocess_data(
-                    use_advanced_features=False,
-                    use_pca=True,
-                    n_components=50
-                )
-
-            # Train all models with default settings (no hyperparameter tuning for speed)
-            with st.spinner("Training SVM..."):
-                self.train_svm(X_train, y_train, cv_tuning=False)
-
-            with st.spinner("Training KNN..."):
-                self.train_knn(X_train, y_train, cv_tuning=False)
-
-            with st.spinner("Training Random Forest..."):
-                self.train_random_forest(X_train, y_train, cv_tuning=False)
-
-            # Store test data for evaluation
-            self.X_test = X_test
-            self.y_test = y_test
-            self.is_trained = True
-
-            st.success("All models trained successfully!")
-            return True
-
-        except Exception as e:
-            st.error(f"Error during training: {e}")
-            import traceback
-            st.code(traceback.format_exc())
-            return False
 
 
 def main():
@@ -681,13 +634,6 @@ def main():
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
-        .info-box {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -697,18 +643,10 @@ def main():
     if 'predictor' not in st.session_state:
         st.session_state.predictor = ChestXRayMLPredictor(img_height=100, img_width=100)
 
-        # Auto-train models on startup
-        with st.spinner("Initializing and training models... This may take a few minutes."):
-            success = st.session_state.predictor.train_default_models()
-            if success:
-                st.session_state.models_trained = True
-            else:
-                st.error("Failed to train models. Please check the dataset.")
-
     predictor = st.session_state.predictor
 
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Home", "Model Info", "Prediction"])
+    tab1, tab2, tab3 = st.tabs(["Home", "Train Model", "Prediction"])
 
     with tab1:
         st.markdown('<h2 class="sub-header">Welcome to Chest X-Ray Pneumonia Detection System</h2>',
@@ -729,14 +667,14 @@ def main():
 
             ### Key Features:
 
-            **Automatic Training**: Models are trained automatically when the app starts  
             **Advanced Feature Extraction**: Histogram, texture, and edge features  
+            **Hyperparameter Tuning**: Grid search with cross-validation  
             **Comprehensive Evaluation**: Multiple metrics including AUC-ROC, MCC, Specificity  
-            **Real-time Prediction**: Upload and analyze X-ray images instantly  
+            **Research-Ready Visualizations**: Learning curves, calibration curves, ROC curves  
 
             ### How to Use:
 
-            1. **Model Info Tab**: View training details and model performance
+            1. **Train Model Tab**: Train new models or load existing ones
             2. **Prediction Tab**: Upload X-ray images for classification
             3. **View Results**: See detailed analysis and confidence scores
 
@@ -757,78 +695,159 @@ def main():
             - **Image Size**: 100x100 pixels
             - **Models**: SVM, KNN, Random Forest
             - **Feature Extraction**: Advanced feature engineering
-            - **Training**: Automatic on app startup
+            - **Target Accuracy**: >95% on test data
             """)
 
-        # Status information
+        # Quick actions
         st.markdown("---")
-        st.subheader("Application Status")
+        st.subheader("Quick Actions")
 
-        if predictor.is_trained:
-            st.markdown("""
-            <div class="success-box">
-                <h3>✅ Models Ready</h3>
-                <p>All machine learning models have been trained and are ready for prediction.</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div class="warning-box">
-                <h3>⚠️ Training Required</h3>
-                <p>Models are currently being trained. Please wait or check the dataset.</p>
-            </div>
-            """, unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            if st.button("Check for Pre-trained Models", use_container_width=True):
+                if os.path.exists('chest_xray_models.pkl'):
+                    st.success("Pre-trained models found!")
+                    try:
+                        predictor.load_models('chest_xray_models.pkl')
+                        st.session_state.models_loaded = True
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error loading models: {e}")
+                else:
+                    st.warning("No pre-trained models found. Please train models first.")
+
+        with col2:
+            if st.button("Train Default Models", use_container_width=True):
+                st.info("Please go to the 'Train Model' tab to train models with your preferred settings.")
+
+        with col3:
+            if st.button("Try Prediction", use_container_width=True):
+                st.info("Please go to the 'Prediction' tab to upload and analyze X-ray images.")
 
     with tab2:
-        st.markdown('<h2 class="sub-header">Model Information & Performance</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 class="sub-header">Model Training & Evaluation</h2>', unsafe_allow_html=True)
 
-        if not predictor.is_trained:
-            st.warning("Models are not trained yet. Please wait for training to complete.")
-        else:
-            # Display training history
-            st.subheader("Training Summary")
+        # Training configuration
+        col1, col2 = st.columns(2)
 
-            col1, col2, col3 = st.columns(3)
+        with col1:
+            st.subheader("Training Configuration")
+            data_dir = st.text_input("Dataset Directory", "dataset/chest_xray")
+            use_advanced_features = st.checkbox("Use Advanced Features", value=False)
+            use_pca = st.checkbox("Use PCA", value=True)
+            n_components = st.slider("PCA Components", 10, 100, 50)
+            cv_tuning = st.checkbox("Hyperparameter Tuning", value=True)
 
-            with col1:
-                st.metric("Total Models", len(predictor.models))
-            with col2:
-                st.metric("Classes", len(predictor.class_names))
-            with col3:
-                st.metric("Feature Dimension", f"{predictor.X_test.shape[1]}")
+        with col2:
+            st.subheader("Model Selection")
+            train_svm = st.checkbox("Train SVM", value=True)
+            train_knn = st.checkbox("Train KNN", value=True)
+            train_rf = st.checkbox("Train Random Forest", value=True)
 
-            # Display training history for each model
-            st.subheader("Model Training Details")
+            # Load existing models
+            st.subheader("Model Management")
+            model_file = st.text_input("Model File", "chest_xray_models.pkl")
+
+            col_load, col_save = st.columns(2)
+            with col_load:
+                if st.button("Load Models"):
+                    try:
+                        predictor.load_models(model_file)
+                        st.session_state.models_loaded = True
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error loading models: {e}")
+
+            with col_save:
+                if st.button("Save Models"):
+                    try:
+                        predictor.save_models(model_file)
+                    except Exception as e:
+                        st.error(f"Error saving models: {e}")
+
+        # Training section
+        st.markdown("---")
+        st.subheader("Start Training")
+
+        if st.button("Train Selected Models", type="primary", use_container_width=True):
+            if not any([train_svm, train_knn, train_rf]):
+                st.error("Please select at least one model to train.")
+            else:
+                try:
+                    # Debug dataset first
+                    with st.spinner("Checking dataset structure..."):
+                        if not predictor.debug_dataset_structure(data_dir):
+                            st.error("Dataset structure issue detected. Please check your dataset path.")
+                            return
+
+                    # Load and preprocess data
+                    with st.spinner("Loading and preprocessing images..."):
+                        features, labels = predictor.load_and_preprocess_images(data_dir)
+                        if features is None:
+                            return
+                        X_train, X_test, y_train, y_test = predictor.preprocess_data(
+                            use_advanced_features=use_advanced_features,
+                            use_pca=use_pca,
+                            n_components=n_components
+                        )
+
+                    # Train selected models
+                    if train_svm:
+                        predictor.train_svm(X_train, y_train, cv_tuning=cv_tuning)
+
+                    if train_knn:
+                        predictor.train_knn(X_train, y_train, cv_tuning=cv_tuning)
+
+                    if train_rf:
+                        predictor.train_random_forest(X_train, y_train, cv_tuning=cv_tuning)
+
+                    # Store test data for evaluation
+                    st.session_state.X_test = X_test
+                    st.session_state.y_test = y_test
+                    st.session_state.training_complete = True
+
+                    st.success("Training completed successfully!")
+
+                except Exception as e:
+                    st.error(f"Error during training: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+
+        # Display training history if available
+        if hasattr(predictor, 'training_history') and predictor.training_history:
+            st.markdown("---")
+            st.subheader("Training History")
+
             for model_name, history in predictor.training_history.items():
                 with st.expander(f"{model_name.upper()} Training Details"):
                     st.write("Best Parameters:", history['best_params'])
                     st.write("Cross-validation Score:", history['cv_score'])
 
-            # Model evaluation section
+        # Model evaluation section
+        if st.session_state.get('training_complete', False) and predictor.models:
             st.markdown("---")
-            st.subheader("Model Performance Evaluation")
+            st.subheader("Model Evaluation")
 
             # Individual model evaluation
-            model_to_evaluate = st.selectbox("Select model for detailed evaluation",
-                                             list(predictor.models.keys()),
-                                             key="eval_select")
+            model_to_evaluate = st.selectbox("Select model for detailed evaluation", list(predictor.models.keys()))
 
-            if st.button("Evaluate Selected Model", key="eval_btn"):
+            if st.button("Evaluate Selected Model"):
                 results = predictor.evaluate_model(
                     predictor.models[model_to_evaluate],
-                    predictor.X_test,
-                    predictor.y_test,
+                    st.session_state.X_test,
+                    st.session_state.y_test,
                     model_to_evaluate
                 )
 
             # Compare all models
             if len(predictor.models) > 1:
                 st.markdown("---")
-                if st.button("Compare All Models", key="compare_btn"):
+                if st.button("Compare All Models"):
                     with st.spinner("Comparing models..."):
                         results, best_model = predictor.compare_models(
-                            predictor.X_test,
-                            predictor.y_test
+                            st.session_state.X_test,
+                            st.session_state.y_test
                         )
                         st.session_state.comparison_results = results
                         st.session_state.best_model = best_model
@@ -836,9 +855,9 @@ def main():
     with tab3:
         st.markdown('<h2 class="sub-header">Pneumonia Prediction</h2>', unsafe_allow_html=True)
 
-        if not predictor.is_trained:
-            st.warning("Models are not trained yet. Please wait for training to complete.")
-            st.info("The application is currently training models. This may take a few minutes.")
+        if not predictor.models:
+            st.warning("No models loaded. Please train or load models first.")
+            st.info("Go to the 'Train Model' tab to train new models or load existing ones.")
         else:
             col1, col2 = st.columns([1, 1])
 
@@ -860,8 +879,7 @@ def main():
                     selected_model = st.selectbox(
                         "Choose model for prediction",
                         list(predictor.models.keys()),
-                        index=0,
-                        key="model_select"
+                        index=0
                     )
 
                     # Single image prediction button
