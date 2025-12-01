@@ -36,7 +36,7 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
-  .main-header {
+    .main-header {
         font-size: 2.5rem;
         color: #ffffff;
         text-align: center;
@@ -45,7 +45,7 @@ st.markdown("""
     }
     .sub-header {
         font-size: 1.8rem;
-        color: #fff;
+        color: #ffffff;
         margin-top: 2rem;
         margin-bottom: 1rem;
         font-weight: bold;
@@ -65,13 +65,6 @@ st.markdown("""
         border-radius: 10px;
         margin: 1rem 0;
     }
-    # .tab-content {
-    #     padding: 2rem;
-    #     border-radius: 10px;
-    #     background-color: #FFFFFF;
-    #     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    #     margin: 1rem 0;
-    # }
     .stProgress > div > div > div > div {
         background-color: #3B82F6;
     }
@@ -583,8 +576,6 @@ def main():
     tab1, tab2, tab3 = st.tabs(["System Information", "Model Training", "Prediction"])
 
     with tab1:
-        st.markdown('<div class="tab-content">', unsafe_allow_html=True)
-
         st.markdown('<h2 class="sub-header">System Overview</h2>', unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
@@ -677,29 +668,7 @@ def main():
             - Cloud deployment
             """)
 
-        st.markdown("---")
-
-        # st.markdown('<h2 class="sub-header">Training Process</h2>', unsafe_allow_html=True)
-        #
-        # process_steps = [
-        #     "Dataset Verification: System checks the dataset structure and validates image files",
-        #     "Image Loading: Images are loaded from both train and test directories",
-        #     "Preprocessing: Images are resized to 100x100 pixels and converted to feature vectors",
-        #     "Data Splitting: Data is split into 80% training and 20% testing sets",
-        #     "Feature Scaling: Features are standardized using StandardScaler",
-        #     "Model Training: Three models (SVM, KNN, Random Forest) are trained sequentially",
-        #     "Evaluation: Each model is evaluated on the test set using multiple metrics",
-        #     "Visualization: Performance metrics, ROC curves, and confusion matrices are generated"
-        # ]
-
-        # for step in process_steps:
-        #     st.markdown(f'<div class="process-step">{step}</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
     with tab2:
-        st.markdown('<div class="tab-content">', unsafe_allow_html=True)
-
         st.markdown('<h2 class="sub-header">Model Training & Evaluation</h2>', unsafe_allow_html=True)
 
         # Fixed dataset path
@@ -907,9 +876,30 @@ def main():
             )
             st.plotly_chart(cal_fig, use_container_width=True)
 
-            # 7. Detailed Metrics Table
+            # 7. Detailed Metrics Table (FIXED: Exclude non-serializable columns)
             st.markdown("**Detailed Metrics**")
-            detailed_df = pd.DataFrame(st.session_state.results).T
+
+            # Create a clean DataFrame with only serializable columns
+            detailed_data = {}
+            for model_name, metrics in st.session_state.results.items():
+                # Extract only the metrics that can be displayed in a DataFrame
+                detailed_data[model_name] = {
+                    'accuracy': metrics['accuracy'],
+                    'auc_roc': metrics['auc_roc'],
+                    'sensitivity': metrics['sensitivity'],
+                    'specificity': metrics['specificity'],
+                    'f1_score': metrics['f1_score'],
+                    'fp': metrics['fp'],
+                    'fn': metrics['fn'],
+                    'fp_fn': metrics['fp_fn'],
+                    'ppv': metrics['ppv'],
+                    'npv': metrics['npv'],
+                    'mcc': metrics['mcc'],
+                    # Convert confusion matrix to string representation
+                    'confusion_matrix': str(metrics['confusion_matrix'].tolist())
+                }
+
+            detailed_df = pd.DataFrame(detailed_data).T.round(4)
             st.dataframe(detailed_df, use_container_width=True)
 
             # 8. Classification Reports
@@ -935,11 +925,7 @@ def main():
         elif not train_button:
             st.info("Click the 'Train Models' button to start training")
 
-        st.markdown('</div>', unsafe_allow_html=True)
-
     with tab3:
-        st.markdown('<div class="tab-content">', unsafe_allow_html=True)
-
         st.markdown('<h2 class="sub-header">Image Prediction</h2>', unsafe_allow_html=True)
 
         if not st.session_state.trained:
@@ -1145,8 +1131,6 @@ def main():
                 except Exception as e:
                     st.error(f"Error during prediction: {str(e)}")
                     st.info("Please ensure the image is a valid chest X-ray and try again.")
-
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
