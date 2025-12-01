@@ -1,1136 +1,972 @@
-# app.py
+# app.py - Streamlit Web Application for Chest X-Ray Pneumonia Detection
 import streamlit as st
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
+import joblib
 import cv2
-import pandas as pd
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, \
-    f1_score, roc_curve, auc, precision_recall_curve, matthews_corrcoef
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.calibration import calibration_curve
-from tqdm import tqdm
-import time
-import base64
 from PIL import Image
+import os
 import plotly.graph_objects as go
 import plotly.express as px
-from plotly.subplots import make_subplots
-import warnings
-
-warnings.filterwarnings('ignore')
 
 # Set page configuration
 st.set_page_config(
     page_title="Chest X-Ray Pneumonia Detection",
-    page_icon="",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_icon="🫁",
+    layout="wide"
 )
 
-# Custom CSS for better styling
+# Custom CSS for cleaner UI
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #ffffff;
-        text-align: center;
-        padding: 1rem;
-        font-weight: bold;
+    /* Main container */
+    .main {
+        padding: 0rem 1rem;
     }
-    .sub-header {
-        font-size: 1.8rem;
-        color: #ffffff;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        font-weight: bold;
+
+    /* Tab styling - RED theme */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0px;
+        background-color: #b30000;
+        padding: 0px;
+        border-radius: 0px;
     }
-    .metric-box {
-        background-color: #F8FAFC;
-        padding: 1rem;
+
+    .stTabs [data-baseweb="tab"] {
+        background-color: #b30000;
+        border-radius: 0px;
+        padding: 12px 24px;
+        font-weight: 600;
+        color: white !important;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+    }
+
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #990000;
+        color: white !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: #b30000;
+        color: white !important;
+        border-bottom: 3px solid #ff4444 !important;
+    }
+
+    .stTabs [aria-selected="false"] {
+        color: white !important;
+        opacity: 0.8;
+    }
+
+    /* Cards */
+    .metric-card {
+        background: white;
+        padding: 20px;
         border-radius: 10px;
-        border-left: 5px solid #3B82F6;
-        margin: 0.5rem 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #b30000;
+        margin-bottom: 15px;
+    }
+
+    /* Results */
+    .result-normal {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #28a745;
+    }
+
+    .result-pneumonia {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #dc3545;
+    }
+
+    /* Headers */
+    .section-header {
+        color: #b30000;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    /* Model cards */
+    .model-card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
+        transition: transform 0.2s;
+    }
+
+    .model-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    /* Custom button styling */
+    .stButton > button {
+        background-color: #b30000;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-weight: 600;
+        transition: background-color 0.3s;
+    }
+
+    .stButton > button:hover {
+        background-color: #990000;
+        color: white;
+    }
+
+    /* Metric styling - WHITE THEME */
+    .stMetric {
+        background: black !important;
+        padding: 20px;
+        border-radius: 10px;
+
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #333 !important;
+    }
+
+    /* Metric label styling */
+    .stMetric label {
+        color: #fff !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Metric value styling */
+    .stMetric div[data-testid="stMetricValue"] {
+        color: #fff !important;
+        font-weight: 700 !important;
+        font-size: 1.8rem !important;
+    }
+
+    /* Metric delta styling */
+    .stMetric div[data-testid="stMetricDelta"] {
+        color: #fff !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Metric container */
+    .stMetric > div {
+        background: transparent !important;
+    }
+
+    /* Override Streamlit's default metric styling */
+    div[data-testid="metric-container"] {
+        background: white !important;
+        border-radius: 10px !important;
+        padding: 20px !important;
+        border: 1px solid #dee2e6 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Metric label */
+    div[data-testid="metric-container"] label {
+        color: #666 !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Metric value */
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        color: #333 !important;
+        font-weight: 700 !important;
+        font-size: 1.8rem !important;
+    }
+
+    /* Metric delta */
+    div[data-testid="metric-container"] div[data-testid="stMetricDelta"] {
+        color: #666 !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+    }
+
+    /* Sample image styling */
+    .sample-image {
+        border: 3px solid #dee2e6;
+        border-radius: 10px;
+        padding: 5px;
+        transition: all 0.3s ease;
+    }
+
+    .sample-image:hover {
+        border-color: #b30000;
+        transform: scale(1.02);
+    }
+
+    /* Prediction result card */
+    .prediction-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 5px solid;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .training-progress {
-        background: linear-gradient(90deg, #3B82F6, #1E3A8A);
-        color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
+
+    .svm-card {
+        border-left-color: #1f77b4;
     }
-    .stProgress > div > div > div > div {
-        background-color: #3B82F6;
+
+    .knn-card {
+        border-left-color: #ff7f0e;
     }
-    .process-step {
-        background-color: #EFF6FF;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #3B82F6;
-        margin: 0.5rem 0;
+
+    .rf-card {
+        border-left-color: #2ca02c;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-class ChestXRayMLPredictor:
-    def __init__(self, img_height=100, img_width=100):
-        self.img_height = img_height
-        self.img_width = img_width
-        self.scaler = StandardScaler()
-        self.models = {}
+class ChestXRayApp:
+    def __init__(self):
+        self.models = None
+        self.scaler = None
+        self.pca = None
         self.class_names = ['NORMAL', 'PNEUMONIA']
-        self.features = None
-        self.labels = None
-        self.results = {}
-        self.visualization_dir = "visualizations"
+        self.img_height = 100
+        self.img_width = 100
+        self.results = None
+        self.load_models()
 
-        # Create visualization directory
-        os.makedirs(self.visualization_dir, exist_ok=True)
+    def load_models(self):
+        """Load trained models"""
+        try:
+            model_file = 'chest_xray_models.pkl'
+            if os.path.exists(model_file):
+                save_data = joblib.load(model_file)
+                self.models = save_data['models']
+                self.scaler = save_data['scaler']
+                self.pca = save_data['pca']
+                self.img_height = save_data['img_height']
+                self.img_width = save_data['img_width']
+                self.class_names = save_data['class_names']
 
-    def debug_dataset_structure(self, data_dir='./dataset/chest_xray'):
-        """Debug dataset structure"""
-        issues = []
+                # Load results if available
+                if os.path.exists('visualizations/detailed_results.csv'):
+                    self.results = pd.read_csv('visualizations/detailed_results.csv', index_col=0)
+                return True
+            else:
+                st.error("Model file not found. Please train the models first.")
+                return False
+        except Exception as e:
+            st.error(f"Error loading models: {e}")
+            return False
 
-        if not os.path.exists(data_dir):
-            issues.append(f"Main dataset directory not found: {data_dir}")
-            return False, issues
+    def preprocess_image(self, image):
+        """Preprocess image for prediction"""
+        try:
+            img_array = np.array(image)
 
-        splits = ['train', 'test']
-        total_images = 0
+            if len(img_array.shape) == 2:
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+            elif img_array.shape[2] == 4:
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
 
-        for split in splits:
-            split_path = os.path.join(data_dir, split)
-            if not os.path.exists(split_path):
-                issues.append(f"Split directory not found: {split_path}")
-                continue
+            img_resized = cv2.resize(img_array, (self.img_width, self.img_height))
+            img_flattened = img_resized.flatten().reshape(1, -1)
+            img_scaled = self.scaler.transform(img_flattened)
 
-            for class_name in self.class_names:
-                class_path = os.path.join(split_path, class_name)
-                if os.path.exists(class_path):
-                    image_files = [f for f in os.listdir(class_path)
-                                   if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
-                    total_images += len(image_files)
+            if self.pca:
+                img_processed = self.pca.transform(img_scaled)
+            else:
+                img_processed = img_scaled
+
+            return img_processed
+        except Exception as e:
+            st.error(f"Error preprocessing image: {e}")
+            return None
+
+    def predict_all_models(self, image):
+        """Predict using all models"""
+        predictions = {}
+        if not self.models:
+            return predictions
+
+        img_processed = self.preprocess_image(image)
+        if img_processed is None:
+            return predictions
+
+        for model_name, model in self.models.items():
+            prediction = model.predict(img_processed)[0]
+
+            if hasattr(model, 'predict_proba'):
+                prediction_proba = model.predict_proba(img_processed)[0]
+                confidence = prediction_proba[prediction]
+                probabilities = prediction_proba
+            else:
+                confidence = 1.0
+                probabilities = [0, 0]
+
+            result = self.class_names[prediction]
+
+            predictions[model_name] = {
+                'prediction': result,
+                'confidence': confidence,
+                'probabilities': probabilities
+            }
+
+        return predictions
+
+    def run(self):
+        """Main application"""
+        # Header
+        st.markdown("<h1 style='text-align: center; color: #b30000;'>Chest X-Ray Pneumonia Detection</h1>",
+                    unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #666;'>Machine Learning Powered Diagnosis System</p>",
+                    unsafe_allow_html=True)
+
+        # Create tabs without emojis
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "Dashboard",
+            "Predict",
+            "Analysis",
+            "Visualizations"
+        ])
+
+        with tab1:
+            self.show_dashboard()
+
+        with tab2:
+            self.show_prediction()
+
+        with tab3:
+            self.show_analysis()
+
+        with tab4:
+            self.show_visualizations()
+
+    def show_dashboard(self):
+        """Show dashboard tab"""
+        st.markdown("<div class='section-header'>System Overview</div>", unsafe_allow_html=True)
+
+        # Quick stats with red background
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric("Total Models", "3", "SVM, KNN, RF")
+
+        with col2:
+            st.metric("Training Images", "5,856", "From Dataset")
+
+        with col3:
+            st.metric("Best Accuracy", "94.97%", "SVM Model")
+
+        with col4:
+            st.metric("Best AUC", "0.9846", "ROC Score")
+
+        # Model Performance Summary
+        st.markdown("<div class='section-header'>Model Performance</div>", unsafe_allow_html=True)
+
+        if self.results is not None:
+            # Performance metrics
+            metrics_df = self.results[['accuracy', 'auc_roc', 'f1_score', 'mcc']].copy()
+            metrics_df.columns = ['Accuracy', 'AUC-ROC', 'F1-Score', 'MCC']
+            metrics_df = metrics_df.round(4)
+
+            col1, col2 = st.columns([3, 2])
+
+            with col1:
+                st.dataframe(metrics_df, use_container_width=True)
+
+            with col2:
+                best_model = metrics_df['Accuracy'].idxmax()
+                best_metrics = metrics_df.loc[best_model]
+
+                # st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+                st.markdown(f"### Best Model: **{best_model.upper()}**")
+                st.markdown(f"**Accuracy:** {best_metrics['Accuracy']:.2%}")
+                st.markdown(f"**AUC-ROC:** {best_metrics['AUC-ROC']:.4f}")
+                st.markdown(f"**F1-Score:** {best_metrics['F1-Score']:.4f}")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # Key metrics comparison
+            st.markdown("<div class='section-header'>Key Metrics Comparison</div>", unsafe_allow_html=True)
+
+            fig = go.Figure()
+
+            models = metrics_df.index.tolist()
+            x = ['Accuracy', 'AUC-ROC', 'F1-Score', 'MCC']
+
+            for model in models:
+                fig.add_trace(go.Scatter(
+                    x=x,
+                    y=metrics_df.loc[model].values,
+                    mode='lines+markers',
+                    name=model.upper(),
+                    line=dict(width=3)
+                ))
+
+            fig.update_layout(
+                title="Model Performance Comparison",
+                xaxis_title="Metrics",
+                yaxis_title="Score",
+                hovermode="x unified",
+                height=400,
+                template="plotly_white"
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+        # System Information
+        st.markdown("<div class='section-header'>System Information</div>", unsafe_allow_html=True)
+
+        info_col1, info_col2 = st.columns(2)
+
+        with info_col1:
+            st.markdown("""
+            ### Dataset Information
+            - **Total Images:** 5,856
+            - **Normal Cases:** 1,583 (27%)
+            - **Pneumonia Cases:** 4,273 (73%)
+            - **Image Size:** 100×100 pixels
+            - **Dataset Split:** Train/Test/Val
+
+            ### Models Used
+            1. **Support Vector Machine (SVM)**
+            2. **K-Nearest Neighbors (KNN)**
+            3. **Random Forest (RF)**
+            """)
+
+        with info_col2:
+            st.markdown("""
+            ### Technical Details
+            - **Framework:** Scikit-learn
+            - **Image Processing:** OpenCV
+            - **Dimensionality Reduction:** PCA
+            - **Cross-validation:** 3-fold
+            - **Best Parameters:** Grid Search
+
+            ### Performance Highlights
+            - **Highest Accuracy:** 94.97%
+            - **Best AUC:** 0.9846
+            - **Lowest FP/FN:** 38/21
+            - **MCC Score:** 0.8709
+            """)
+
+    def show_prediction(self):
+        """Show prediction tab"""
+        st.markdown("<div class='section-header'>Image Analysis</div>", unsafe_allow_html=True)
+
+        col1, col2 = st.columns([1, 1])
+
+        with col1:
+            st.markdown("### Upload X-Ray Image")
+            uploaded_file = st.file_uploader(
+                "Choose a chest X-ray image...",
+                type=['jpg', 'jpeg', 'png'],
+                label_visibility="collapsed"
+            )
+
+            if uploaded_file is not None:
+                image = Image.open(uploaded_file)
+                st.image(image, caption="Uploaded Image", use_container_width=True)
+
+                # Analyze button
+                if st.button("Analyze Image with All Models", type="primary", use_container_width=True):
+                    with st.spinner("Analyzing image with all models..."):
+                        predictions = self.predict_all_models(image)
+
+                        if predictions:
+                            # Display results from all models
+                            st.markdown("### Analysis Results from All Models")
+
+                            # Create columns for model results
+                            result_cols = st.columns(3)
+
+                            model_colors = {
+                                'svm': '#1f77b4',
+                                'knn': '#ff7f0e',
+                                'random_forest': '#2ca02c'
+                            }
+
+                            for idx, (model_name, result) in enumerate(predictions.items()):
+                                with result_cols[idx]:
+                                    if result['prediction'] == "PNEUMONIA":
+                                        st.error(f"**{model_name.upper()}**")
+                                        st.error(f"Result: {result['prediction']}")
+                                    else:
+                                        st.success(f"**{model_name.upper()}**")
+                                        st.success(f"Result: {result['prediction']}")
+
+                                    st.metric("Confidence", f"{result['confidence']:.2%}")
+
+                                    # Show probabilities
+                                    prob_data = pd.DataFrame({
+                                        'Class': self.class_names,
+                                        'Probability': result['probabilities']
+                                    })
+
+                                    fig = px.bar(
+                                        prob_data,
+                                        x='Class',
+                                        y='Probability',
+                                        color='Class',
+                                        color_discrete_sequence=['#28a745', '#dc3545'],
+                                        text_auto='.2%'
+                                    )
+                                    fig.update_layout(
+                                        yaxis_range=[0, 1],
+                                        showlegend=False,
+                                        height=250,
+                                        title=f"{model_name.upper()} Probabilities"
+                                    )
+                                    st.plotly_chart(fig, use_container_width=True)
+
+                            # Show consensus analysis
+                            st.markdown("### Model Consensus Analysis")
+                            consensus = {}
+                            for model_name, result in predictions.items():
+                                pred = result['prediction']
+                                if pred not in consensus:
+                                    consensus[pred] = []
+                                consensus[pred].append(model_name)
+
+                            if len(consensus) == 1:
+                                # All models agree
+                                final_prediction = list(consensus.keys())[0]
+                                if final_prediction == "PNEUMONIA":
+                                    st.error(f"**CONSENSUS: {final_prediction} DETECTED**")
+                                    st.warning(
+                                        "All 3 models detected pneumonia. Please consult a healthcare professional immediately.")
+                                else:
+                                    st.success(f"**CONSENSUS: {final_prediction} CHEST X-RAY**")
+                                    st.info("All 3 models agree: No signs of pneumonia detected.")
+                            else:
+                                # Models disagree
+                                st.warning("**MODELS DISAGREE**")
+                                for pred, models in consensus.items():
+                                    st.write(f"{pred}: {', '.join([m.upper() for m in models])}")
+
+                                # Show majority vote
+                                majority_pred = max(consensus.items(), key=lambda x: len(x[1]))
+                                if len(majority_pred[1]) >= 2:  # At least 2 models agree
+                                    if majority_pred[0] == "PNEUMONIA":
+                                        st.error(
+                                            f"**MAJORITY VOTE ({len(majority_pred[1])}/3): {majority_pred[0]} DETECTED**")
+                                        st.warning(
+                                            "Majority of models detected pneumonia. Please consult a healthcare professional.")
+                                    else:
+                                        st.success(
+                                            f"**MAJORITY VOTE ({len(majority_pred[1])}/3): {majority_pred[0]} CHEST X-RAY**")
+                                        st.info("Majority of models indicate no pneumonia.")
+
+        with col2:
+            st.markdown("### Try Sample Images")
+
+            # Sample images section with actual images from dataset
+            sample_images = {
+                "Normal": "dataset/chest_xray/val/NORMAL/NORMAL2-IM-1427-0001.jpeg",
+                "Pneumonia": "dataset/chest_xray/val/PNEUMONIA/person1946_bacteria_4874.jpeg"
+            }
+
+            # Check if sample images exist
+            for label, path in sample_images.items():
+                if not os.path.exists(path):
+                    st.warning(f"Sample image not found: {path}")
+                    # Create placeholder text
+                    st.info(f"**{label} Sample**")
+                    st.write("Sample image would appear here")
+
+                    # Test button for placeholder
+                    if st.button(f"Test {label} Sample", use_container_width=True):
+                        st.info(f"This would test a {label.lower()} chest X-ray image")
                 else:
-                    issues.append(f"Class directory not found: {class_path}")
+                    # Display sample image - FIXED: Removed use_column_width parameter
+                    st.markdown(f"**{label} Sample**")
+                    sample_img = Image.open(path)
+                    st.image(sample_img, caption=f"{label} Chest X-Ray", use_container_width=True)
 
-        return len(issues) == 0, issues
+                    # Test button
+                    if st.button(f"Test {label} Sample", use_container_width=True):
+                        with st.spinner(f"Testing {label} sample..."):
+                            predictions = self.predict_all_models(sample_img)
 
-    def load_and_preprocess_images(self, data_dir='./dataset/chest_xray', progress_callback=None):
-        """Load and preprocess images from directory"""
-        features = []
-        labels = []
+                            if predictions:
+                                st.markdown(f"### Results for {label} Sample")
 
-        splits = ['train', 'test']
-        total_images = 0
+                                # Display quick results
+                                result_text = ""
+                                for model_name, result in predictions.items():
+                                    result_text += f"**{model_name.upper()}**: {result['prediction']} ({result['confidence']:.2%})\n"
 
-        # Count total images first
-        for split in splits:
-            split_path = os.path.join(data_dir, split)
-            if os.path.exists(split_path):
-                for class_name in self.class_names:
-                    class_path = os.path.join(split_path, class_name)
-                    if os.path.exists(class_path):
-                        image_files = [f for f in os.listdir(class_path)
-                                       if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
-                        total_images += len(image_files)
+                                st.write(result_text)
 
-        processed = 0
+                                # Show consensus
+                                consensus = {}
+                                for model_name, result in predictions.items():
+                                    pred = result['prediction']
+                                    if pred not in consensus:
+                                        consensus[pred] = []
+                                    consensus[pred].append(model_name)
 
-        for split in splits:
-            split_path = os.path.join(data_dir, split)
-            if not os.path.exists(split_path):
-                continue
+                                if label == "Normal" and "NORMAL" in consensus:
+                                    st.success("✓ Correctly identified as NORMAL")
+                                elif label == "Pneumonia" and "PNEUMONIA" in consensus:
+                                    st.success("✓ Correctly identified as PNEUMONIA")
+                                else:
+                                    st.warning("Some models may have misclassified this sample")
 
-            for class_name in self.class_names:
-                class_path = os.path.join(split_path, class_name)
-                if not os.path.exists(class_path):
-                    continue
+            # Batch prediction section
+            # st.markdown("---")
+            # st.markdown("### Batch Prediction")
+            #
+            # batch_files = st.file_uploader(
+            #     "Upload multiple images for batch analysis",
+            #     type=['jpg', 'jpeg', 'png'],
+            #     accept_multiple_files=True,
+            #     label_visibility="collapsed"
+            # )
+            #
+            # if batch_files:
+            #     if st.button("Analyze All Images", type="secondary", use_container_width=True):
+            #         with st.spinner(f"Analyzing {len(batch_files)} images with all models..."):
+            #             all_results = []
+            #
+            #             for i, file in enumerate(batch_files):
+            #                 img = Image.open(file)
+            #                 predictions = self.predict_all_models(img)
+            #
+            #                 if predictions:
+            #                     # Get consensus
+            #                     consensus_count = {}
+            #                     for model_name, result in predictions.items():
+            #                         pred = result['prediction']
+            #                         consensus_count[pred] = consensus_count.get(pred, 0) + 1
+            #
+            #                     # Determine final prediction (majority vote)
+            #                     final_prediction = max(consensus_count.items(), key=lambda x: x[1])[
+            #                         0] if consensus_count else "UNKNOWN"
+            #
+            #                     all_results.append({
+            #                         'Image': file.name,
+            #                         'SVM': predictions.get('svm', {}).get('prediction', 'N/A'),
+            #                         'KNN': predictions.get('knn', {}).get('prediction', 'N/A'),
+            #                         'Random Forest': predictions.get('random_forest', {}).get('prediction', 'N/A'),
+            #                         'Final Prediction': final_prediction,
+            #                         'Agreement': f"{consensus_count.get(final_prediction, 0)}/3 models"
+            #                     })
+            #
+            #             if all_results:
+            #                 results_df = pd.DataFrame(all_results)
+            #                 st.dataframe(results_df, use_container_width=True)
+            #
+            #                 # Summary statistics
+            #                 normal_count = sum(1 for r in all_results if r['Final Prediction'] == 'NORMAL')
+            #                 pneumonia_count = sum(1 for r in all_results if r['Final Prediction'] == 'PNEUMONIA')
+            #
+            #                 summary_col1, summary_col2 = st.columns(2)
+            #                 with summary_col1:
+            #                     st.metric("Normal", normal_count)
+            #                 with summary_col2:
+            #                     st.metric("Pneumonia", pneumonia_count)
 
-                image_files = [f for f in os.listdir(class_path)
-                               if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
+    def show_analysis(self):
+        """Show analysis tab"""
+        st.markdown("<div class='section-header'>Performance Analysis</div>", unsafe_allow_html=True)
 
-                for image_file in image_files:
-                    img_path = os.path.join(class_path, image_file)
+        if self.results is None:
+            st.warning("No performance data available. Please run training first.")
+            return
 
-                    try:
-                        # Load and preprocess image
-                        img = cv2.imread(img_path)
-                        if img is None:
-                            continue
+        # Detailed metrics table
+        st.markdown("### Detailed Metrics Table")
 
-                        # Convert to RGB and resize
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                        img = cv2.resize(img, (self.img_width, self.img_height))
+        detailed_metrics = self.results.copy()
+        detailed_metrics = detailed_metrics[['accuracy', 'auc_roc', 'sensitivity', 'specificity',
+                                             'f1_score', 'ppv', 'npv', 'mcc']]
+        detailed_metrics.columns = ['Accuracy', 'AUC-ROC', 'Sensitivity', 'Specificity',
+                                    'F1-Score', 'PPV', 'NPV', 'MCC']
 
-                        # Extract features (flatten image)
-                        img_flattened = img.flatten()
+        # Format as percentages where appropriate
+        percent_cols = ['Accuracy', 'Sensitivity', 'Specificity', 'PPV', 'NPV']
+        for col in percent_cols:
+            if col in detailed_metrics.columns:
+                detailed_metrics[col] = detailed_metrics[col].apply(lambda x: f"{x:.2%}")
 
-                        features.append(img_flattened)
-                        labels.append(class_name)
+        st.dataframe(detailed_metrics, use_container_width=True)
 
-                        processed += 1
-                        if progress_callback:
-                            progress_callback(processed, total_images, f"Processing {split}/{class_name}")
+        # Performance metrics visualization
+        st.markdown("### Performance Metrics Radar Chart")
 
-                    except Exception as e:
-                        continue
+        metrics_for_radar = self.results[['accuracy', 'auc_roc', 'f1_score', 'mcc',
+                                          'sensitivity', 'specificity']].copy()
+        metrics_for_radar.columns = ['Accuracy', 'AUC-ROC', 'F1-Score', 'MCC',
+                                     'Sensitivity', 'Specificity']
 
-        if len(features) == 0:
-            return None, None
+        fig = go.Figure()
 
-        self.features = np.array(features)
-        self.labels = np.array(labels)
+        for model in metrics_for_radar.index:
+            values = metrics_for_radar.loc[model].values.tolist()
+            values += values[:1]  # Complete the circle
 
-        return self.features, self.labels
-
-    def preprocess_data(self):
-        """Preprocess the data for ML models"""
-        # Encode labels
-        le = LabelEncoder()
-        y_encoded = le.fit_transform(self.labels)
-
-        X_processed = self.features
-
-        # Split the data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_processed, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
-        )
-
-        # Scale features
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
-
-        return X_train_scaled, X_test_scaled, y_train, y_test
-
-    def train_svm(self, X_train, y_train):
-        """Train SVM with RBF kernel"""
-        # Use optimized parameters for speed
-        svm = SVC(C=1.0, kernel='rbf', gamma='scale', random_state=42, probability=True)
-        svm.fit(X_train, y_train)
-
-        self.models['svm'] = svm
-        return svm
-
-    def train_knn(self, X_train, y_train):
-        """Train KNN classifier"""
-        knn = KNeighborsClassifier(n_neighbors=5, weights='uniform', metric='euclidean')
-        knn.fit(X_train, y_train)
-
-        self.models['knn'] = knn
-        return knn
-
-    def train_random_forest(self, X_train, y_train):
-        """Train Random Forest classifier"""
-        rf = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
-        rf.fit(X_train, y_train)
-
-        self.models['random_forest'] = rf
-        return rf
-
-    def evaluate_model(self, model, X_test, y_test, model_name):
-        """Evaluate a single model"""
-        # Make predictions
-        y_pred = model.predict(X_test)
-
-        # Get probabilities if available
-        if hasattr(model, 'predict_proba'):
-            y_proba = model.predict_proba(X_test)[:, 1]
-        else:
-            y_proba = None
-
-        # Calculate metrics
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average='weighted')
-        recall = recall_score(y_test, y_pred, average='weighted')
-        f1 = f1_score(y_test, y_pred, average='weighted')
-        mcc = matthews_corrcoef(y_test, y_pred)
-
-        # Calculate AUC-ROC
-        if y_proba is not None:
-            fpr, tpr, _ = roc_curve(y_test, y_proba)
-            auc_score = auc(fpr, tpr)
-        else:
-            auc_score = 0.0
-
-        # Calculate specificity
-        tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
-        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-
-        # Calculate PPV and NPV
-        ppv = tp / (tp + fp) if (tp + fp) > 0 else 0
-        npv = tn / (tn + fn) if (tn + fn) > 0 else 0
-
-        return {
-            'accuracy': accuracy,
-            'auc_roc': auc_score,
-            'sensitivity': recall,
-            'specificity': specificity,
-            'f1_score': f1,
-            'fp': fp,
-            'fn': fn,
-            'fp_fn': f"{fp}/{fn}",
-            'ppv': ppv,
-            'npv': npv,
-            'mcc': mcc,
-            'y_pred': y_pred,
-            'y_proba': y_proba,
-            'fpr': fpr if y_proba is not None else None,
-            'tpr': tpr if y_proba is not None else None,
-            'confusion_matrix': confusion_matrix(y_test, y_pred)
-        }
-
-
-def create_metrics_dashboard(results):
-    """Create a metrics dashboard"""
-    metrics_df = pd.DataFrame(results).T
-
-    # Select metrics to display
-    display_metrics = ['accuracy', 'auc_roc', 'sensitivity', 'specificity', 'f1_score', 'ppv', 'npv', 'mcc']
-    display_df = metrics_df[display_metrics].round(4)
-
-    # Create Plotly table
-    fig = go.Figure(data=[go.Table(
-        header=dict(
-            values=['Model'] + [m.upper() for m in display_metrics],
-            fill_color='#1E3A8A',
-            align='center',
-            font=dict(color='white', size=12),
-            height=40
-        ),
-        cells=dict(
-            values=[display_df.index.str.upper()] + [display_df[col] for col in display_metrics],
-            fill_color=[['rgb(240, 240, 240)', 'rgb(255, 255, 255)'] * 5],
-            align='center',
-            font=dict(color='black', size=11),
-            height=30
-        )
-    )])
-
-    fig.update_layout(
-        title="Model Performance Metrics",
-        title_font=dict(size=16, color='#1E3A8A'),
-        margin=dict(l=0, r=0, t=40, b=0)
-    )
-
-    return fig, display_df
-
-
-def create_roc_curves_plot(results, X_test, y_test, models):
-    """Create ROC curves plot"""
-    fig = go.Figure()
-
-    # Add diagonal line
-    fig.add_trace(go.Scatter(
-        x=[0, 1], y=[0, 1],
-        mode='lines',
-        line=dict(color='navy', width=2, dash='dash'),
-        name='Random Classifier',
-        hoverinfo='skip'
-    ))
-
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-
-    for idx, (model_name, metrics) in enumerate(results.items()):
-        if metrics['fpr'] is not None and metrics['tpr'] is not None:
-            fig.add_trace(go.Scatter(
-                x=metrics['fpr'],
-                y=metrics['tpr'],
-                mode='lines',
-                line=dict(color=colors[idx % len(colors)], width=3),
-                name=f'{model_name.upper()} (AUC = {metrics["auc_roc"]:.4f})',
-                hovertemplate='FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>'
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=metrics_for_radar.columns.tolist() + [metrics_for_radar.columns[0]],
+                fill='toself',
+                name=model.upper(),
+                opacity=0.7
             ))
 
-    fig.update_layout(
-        title='ROC Curves Comparison',
-        xaxis_title='False Positive Rate',
-        yaxis_title='True Positive Rate',
-        xaxis=dict(range=[0, 1], gridcolor='lightgray'),
-        yaxis=dict(range=[0, 1], gridcolor='lightgray'),
-        plot_bgcolor='white',
-        hovermode='x unified',
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        ),
-        width=800,
-        height=600
-    )
-
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-
-    return fig
-
-
-def create_confusion_matrices(results):
-    """Create confusion matrices visualization"""
-    fig = make_subplots(
-        rows=1, cols=len(results),
-        subplot_titles=[f'{name.upper()}' for name in results.keys()],
-        horizontal_spacing=0.1
-    )
-
-    for idx, (model_name, metrics) in enumerate(results.items(), 1):
-        cm = metrics['confusion_matrix']
-
-        # Create heatmap
-        heatmap = go.Heatmap(
-            z=cm,
-            x=['Predicted Normal', 'Predicted Pneumonia'],
-            y=['Actual Normal', 'Actual Pneumonia'],
-            text=[[f"{val}" for val in row] for row in cm],
-            texttemplate="%{text}",
-            textfont={"size": 14},
-            colorscale='Blues',
-            showscale=False if idx < len(results) else True,
-            colorbar=dict(title="Count") if idx == len(results) else None
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 1]
+                )),
+            showlegend=True,
+            title="Model Performance Radar Chart",
+            height=500,
+            template="plotly_white"
         )
 
-        fig.add_trace(heatmap, row=1, col=idx)
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Add annotations
-        total = np.sum(cm)
-        for i in range(2):
-            for j in range(2):
-                percentage = cm[i, j] / total * 100
-                fig.add_annotation(
-                    x=j, y=i,
-                    text=f"<b>{cm[i, j]}<br>({percentage:.1f}%)</b>",
-                    showarrow=False,
-                    font=dict(size=12, color='black' if cm[i, j] < np.max(cm) / 2 else 'white'),
-                    row=1, col=idx
+        # Confusion matrix summary
+        st.markdown("### Error Analysis")
+
+        if 'fp_fn' in self.results.columns:
+            error_data = []
+            for model in self.results.index:
+                fp_fn = str(self.results.loc[model, 'fp_fn']).split('/')
+                if len(fp_fn) == 2:
+                    error_data.append({
+                        'Model': model.upper(),
+                        'False Positives': int(fp_fn[0]),
+                        'False Negatives': int(fp_fn[1])
+                    })
+
+            if error_data:
+                error_df = pd.DataFrame(error_data)
+
+                fig_errors = go.Figure(data=[
+                    go.Bar(name='False Positives', x=error_df['Model'], y=error_df['False Positives']),
+                    go.Bar(name='False Negatives', x=error_df['Model'], y=error_df['False Negatives'])
+                ])
+
+                fig_errors.update_layout(
+                    barmode='group',
+                    title="False Positives & False Negatives by Model",
+                    xaxis_title="Model",
+                    yaxis_title="Count",
+                    height=400,
+                    template="plotly_white"
                 )
 
-    fig.update_layout(
-        title='Confusion Matrices',
-        title_font=dict(size=16, color='#1E3A8A'),
-        height=400,
-        plot_bgcolor='white'
-    )
+                st.plotly_chart(fig_errors, use_container_width=True)
 
-    return fig
+        # Model comparison bar chart
+        st.markdown("### Model Comparison Chart")
 
+        comparison_cols = ['accuracy', 'auc_roc', 'f1_score']
+        comparison_df = self.results[comparison_cols].copy()
+        comparison_df.columns = ['Accuracy', 'AUC-ROC', 'F1-Score']
 
-def create_learning_curves_plot():
-    """Create learning curves plot (simplified version)"""
-    # Simplified learning curves for demonstration
-    train_sizes = np.linspace(0.1, 1.0, 10)
+        fig_comparison = go.Figure(data=[
+            go.Bar(name=col, x=comparison_df.index, y=comparison_df[col])
+            for col in comparison_df.columns
+        ])
 
-    fig = go.Figure()
-
-    # Simulated data for different models
-    models_data = {
-        'SVM': {
-            'train_scores': [0.85, 0.87, 0.88, 0.89, 0.90, 0.91, 0.92, 0.93, 0.94, 0.95],
-            'val_scores': [0.82, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.90, 0.91, 0.92]
-        },
-        'KNN': {
-            'train_scores': [0.88, 0.89, 0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97],
-            'val_scores': [0.80, 0.82, 0.84, 0.85, 0.86, 0.87, 0.87, 0.88, 0.88, 0.89]
-        },
-        'Random Forest': {
-            'train_scores': [0.95, 0.96, 0.97, 0.98, 0.99, 0.995, 0.998, 0.999, 1.0, 1.0],
-            'val_scores': [0.85, 0.87, 0.88, 0.89, 0.90, 0.91, 0.92, 0.93, 0.935, 0.94]
-        }
-    }
-
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-
-    for idx, (model_name, data) in enumerate(models_data.items()):
-        # Training scores
-        fig.add_trace(go.Scatter(
-            x=train_sizes,
-            y=data['train_scores'],
-            mode='lines+markers',
-            name=f'{model_name} (Training)',
-            line=dict(color=colors[idx], width=2),
-            marker=dict(size=6)
-        ))
-
-        # Validation scores
-        fig.add_trace(go.Scatter(
-            x=train_sizes,
-            y=data['val_scores'],
-            mode='lines+markers',
-            name=f'{model_name} (Validation)',
-            line=dict(color=colors[idx], width=2, dash='dash'),
-            marker=dict(size=6, symbol='square')
-        ))
-
-    fig.update_layout(
-        title='Learning Curves Comparison',
-        xaxis_title='Training Examples (Proportion)',
-        yaxis_title='Accuracy Score',
-        xaxis=dict(gridcolor='lightgray'),
-        yaxis=dict(gridcolor='lightgray'),
-        plot_bgcolor='white',
-        hovermode='x unified',
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        ),
-        height=500
-    )
-
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-
-    return fig
-
-
-def create_calibration_curves_plot(results, X_test, y_test, models):
-    """Create calibration curves plot"""
-    fig = go.Figure()
-
-    # Perfect calibration line
-    fig.add_trace(go.Scatter(
-        x=[0, 1], y=[0, 1],
-        mode='lines',
-        line=dict(color='black', width=2, dash='dash'),
-        name='Perfectly Calibrated',
-        hoverinfo='skip'
-    ))
-
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-
-    for idx, (model_name, model) in enumerate(models.items()):
-        if hasattr(model, 'predict_proba'):
-            prob_pos = model.predict_proba(X_test)[:, 1]
-        else:
-            continue
-
-        fraction_of_positives, mean_predicted_value = calibration_curve(
-            y_test, prob_pos, n_bins=10, strategy='uniform'
+        fig_comparison.update_layout(
+            barmode='group',
+            title="Model Performance Comparison",
+            xaxis_title="Model",
+            yaxis_title="Score",
+            height=400,
+            template="plotly_white"
         )
 
-        # Calculate calibration error
-        calibration_error = np.mean(np.abs(fraction_of_positives - mean_predicted_value))
+        st.plotly_chart(fig_comparison, use_container_width=True)
 
-        fig.add_trace(go.Scatter(
-            x=mean_predicted_value,
-            y=fraction_of_positives,
-            mode='lines+markers',
-            line=dict(color=colors[idx % len(colors)], width=3),
-            marker=dict(size=8),
-            name=f'{model_name.upper()} (ECE: {calibration_error:.3f})',
-            hovertemplate='Predicted: %{x:.3f}<br>Actual: %{y:.3f}<extra></extra>'
-        ))
+        # Download results
+        st.markdown("### Export Results")
 
-    fig.update_layout(
-        title='Calibration Curves Comparison',
-        xaxis_title='Mean Predicted Probability',
-        yaxis_title='Fraction of Positives',
-        xaxis=dict(range=[0, 1], gridcolor='lightgray'),
-        yaxis=dict(range=[0, 1], gridcolor='lightgray'),
-        plot_bgcolor='white',
-        hovermode='x unified',
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        ),
-        width=800,
-        height=600
-    )
+        col1, col2, col3 = st.columns(3)
 
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        with col1:
+            if st.button("Download CSV", use_container_width=True):
+                csv = self.results.to_csv(index=True)
+                st.download_button(
+                    label="Click to download",
+                    data=csv,
+                    file_name="pneumonia_model_results.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
 
-    return fig
+        with col2:
+            if st.button("Generate Report", use_container_width=True):
+                st.success("Report generated successfully!")
+
+        with col3:
+            if st.button("Refresh Data", use_container_width=True):
+                st.rerun()
+
+    def show_visualizations(self):
+        """Show visualizations tab"""
+        st.markdown("<div class='section-header'>Research Visualizations</div>", unsafe_allow_html=True)
+
+        viz_dir = "visualizations"
+        if not os.path.exists(viz_dir):
+            st.warning(f"Visualizations directory '{viz_dir}' not found.")
+            return
+
+        # Create sub-tabs for different visualizations
+        viz_tab1, viz_tab2, viz_tab3, viz_tab4 = st.tabs([
+            "Learning Curves",
+            "Calibration Curves",
+            "ROC Curves",
+            "Precision-Recall"
+        ])
+
+        with viz_tab1:
+            st.markdown("### Learning Curves")
+            st.markdown("""
+            Learning curves show how model performance improves with more training data.
+            The gap between training and validation scores indicates overfitting.
+            """)
+
+            learning_curve_path = os.path.join(viz_dir, "research_learning_curves.png")
+            if os.path.exists(learning_curve_path):
+                st.image(learning_curve_path, use_container_width=True)
+            else:
+                st.warning("Learning curves visualization not found.")
+
+        with viz_tab2:
+            st.markdown("### Calibration Curves")
+            st.markdown("""
+            Calibration curves show how well predicted probabilities match actual outcomes.
+            A perfectly calibrated model follows the diagonal line.
+            ECE (Expected Calibration Error) measures deviation from perfect calibration.
+            """)
+
+            calibration_path = os.path.join(viz_dir, "research_calibration_curves.png")
+            if os.path.exists(calibration_path):
+                st.image(calibration_path, use_container_width=True)
+            else:
+                st.warning("Calibration curves visualization not found.")
+
+        with viz_tab3:
+            st.markdown("### ROC Curves")
+            st.markdown("""
+            Receiver Operating Characteristic (ROC) curves show the trade-off between 
+            True Positive Rate (Sensitivity) and False Positive Rate (1-Specificity).
+            Area Under the Curve (AUC) closer to 1.0 indicates better performance.
+            """)
+
+            roc_path = os.path.join(viz_dir, "roc_curves_all_models.png")
+            if os.path.exists(roc_path):
+                st.image(roc_path, use_container_width=True)
+
+                # Add AUC values table
+                if self.results is not None and 'auc_roc' in self.results.columns:
+                    auc_data = pd.DataFrame({
+                        'Model': self.results.index.str.upper(),
+                        'AUC-ROC': self.results['auc_roc'].round(4)
+                    })
+                    st.dataframe(auc_data, use_container_width=True)
+            else:
+                st.warning("ROC curves visualization not found.")
+
+        with viz_tab4:
+            st.markdown("### Precision-Recall Curves")
+            st.markdown("""
+            Precision-Recall curves are particularly useful for imbalanced datasets.
+            They show the trade-off between precision (positive predictive value) 
+            and recall (sensitivity).
+            """)
+
+            pr_path = os.path.join(viz_dir, "precision_recall_curves_all_models.png")
+            if os.path.exists(pr_path):
+                st.image(pr_path, use_container_width=True)
+            else:
+                st.warning("Precision-Recall curves visualization not found.")
+
+        # Visualization insights
+        st.markdown("---")
+        st.markdown("### Visualization Insights")
+
+        insights_col1, insights_col2 = st.columns(2)
+
+        with insights_col1:
+            st.markdown("""
+            #### Key Observations:
+            1. **SVM performs best** across all metrics
+            2. **Good calibration** - predicted probabilities are reliable
+            3. **High AUC scores** - models distinguish well between classes
+            4. **Learning curves show** models are well-fitted, not overfitting
+            """)
+
+        with insights_col2:
+            st.markdown("""
+            #### Interpretation Tips:
+            - **ROC Curve**: Closer to top-left corner is better
+            - **PR Curve**: Higher is better, especially for imbalanced data
+            - **Learning Curve**: Convergence indicates sufficient data
+            - **Calibration Curve**: Closer to diagonal indicates better calibration
+            """)
+
+        # Download visualizations
+        st.markdown("### Download Visualizations")
+
+        viz_files = [
+            ("research_learning_curves.png", "Learning Curves"),
+            ("research_calibration_curves.png", "Calibration Curves"),
+            ("roc_curves_all_models.png", "ROC Curves"),
+            ("precision_recall_curves_all_models.png", "Precision-Recall Curves")
+        ]
+
+        cols = st.columns(4)
+        for idx, (filename, display_name) in enumerate(viz_files):
+            filepath = os.path.join(viz_dir, filename)
+            if os.path.exists(filepath):
+                with cols[idx]:
+                    with open(filepath, "rb") as file:
+                        btn = st.download_button(
+                            label=f"Download {display_name}",
+                            data=file,
+                            file_name=filename,
+                            mime="image/png",
+                            use_container_width=True
+                        )
 
 
 def main():
-    """Main Streamlit app"""
-    st.markdown('<h1 class="main-header">Chest X-Ray Pneumonia Detection System</h1>', unsafe_allow_html=True)
+    """Main function"""
+    # Initialize app
+    app = ChestXRayApp()
 
-    # Initialize session state
-    if 'trained' not in st.session_state:
-        st.session_state.trained = False
-    if 'predictor' not in st.session_state:
-        st.session_state.predictor = None
-    if 'results' not in st.session_state:
-        st.session_state.results = None
-    if 'X_test' not in st.session_state:
-        st.session_state.X_test = None
-    if 'y_test' not in st.session_state:
-        st.session_state.y_test = None
-    if 'models' not in st.session_state:
-        st.session_state.models = None
-    if 'class_distribution' not in st.session_state:
-        st.session_state.class_distribution = None
+    # Check if models are loaded
+    if not app.load_models():
+        st.error("""
+            ## Models Not Found
 
-    # Create tabs
-    tab1, tab2, tab3 = st.tabs(["System Information", "Model Training", "Prediction"])
+            Please ensure that:
+            1. You have trained the models using `main.py`
+            2. The model file `chest_xray_models.pkl` exists in the current directory
+            3. The `visualizations` folder exists with generated plots
 
-    with tab1:
-        st.markdown('<h2 class="sub-header">System Overview</h2>', unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("""
-            ### Purpose
-            This system uses machine learning to detect pneumonia from chest X-ray images. 
-            It implements three different models:
-
-            - **Support Vector Machine (SVM)**: RBF kernel classifier
-            - **K-Nearest Neighbors (KNN)**: Distance-based classifier
-            - **Random Forest**: Ensemble learning method
-
-            ### Medical Significance
-            - Early detection of pneumonia can save lives
-            - Reduces diagnostic time from hours to seconds
-            - Assists radiologists in making informed decisions
-            - Particularly useful in resource-limited settings
-            """)
-
-        with col2:
-            st.markdown("""
-            ### Technical Architecture
-
-            **Image Processing Pipeline:**
-            1. Image loading and RGB conversion
-            2. Resizing to 100x100 pixels
-            3. Flattening to feature vectors
-            4. StandardScaler normalization
-
-            **Model Training:**
-            - 80-20 train-test split
-            - Stratified sampling
-            - Standard evaluation metrics
-
-            **Performance Metrics:**
-            - Accuracy, Sensitivity, Specificity
-            - AUC-ROC, F1-Score
-            - PPV, NPV, MCC
-            """)
-
-        st.markdown("---")
-
-        st.markdown('<h2 class="sub-header">Dataset Information</h2>', unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("""
-            ### Dataset Structure
-
-            Required directory structure:
+            To train the models, run:
+            ```bash
+            python main.py
             ```
-            dataset/chest_xray/
-            ├── train/
-            │   ├── NORMAL/
-            │   └── PNEUMONIA/
-            └── test/
-                ├── NORMAL/
-                └── PNEUMONIA/
-            ```
-
-            ### Sample Statistics
-            - Original dataset: ~5,863 images
-            - Normal cases: ~1,583 images
-            - Pneumonia cases: ~4,280 images
-            - Image format: JPEG, PNG
-            - Resolution: Various, resized to 100x100
-            """)
-
-        with col2:
-            st.markdown("""
-            ### Limitations & Considerations
-
-            **Clinical Considerations:**
-            - This is an assistive tool, not a replacement for medical professionals
-            - False negatives/positives are possible
-            - Always consult with healthcare providers
-
-            **Technical Limitations:**
-            - Limited to binary classification (Normal/Pneumonia)
-            - Requires adequate lighting in X-ray images
-            - May not detect rare pneumonia types
-
-            **Future Improvements:**
-            - Multi-class classification
-            - Deep learning integration
-            - Real-time processing
-            - Cloud deployment
-            """)
-
-    with tab2:
-        st.markdown('<h2 class="sub-header">Model Training & Evaluation</h2>', unsafe_allow_html=True)
-
-        # Fixed dataset path
-        dataset_path = "./dataset/chest_xray"
-
-        # Training button
-        train_button = st.button("Train Models", type="primary", use_container_width=True)
-
-        if train_button:
-            # Phase 1: Dataset Verification
-            st.markdown("### Phase 1: Dataset Verification")
-            dataset_status = st.empty()
-            dataset_progress = st.progress(0)
-
-            dataset_status.text("Checking dataset structure...")
-            predictor = ChestXRayMLPredictor(img_height=100, img_width=100)
-
-            dataset_ok, issues = predictor.debug_dataset_structure(dataset_path)
-            dataset_progress.progress(30)
-
-            if not dataset_ok:
-                dataset_status.error("Dataset structure issues found:")
-                for issue in issues:
-                    st.error(f"- {issue}")
-                st.info("Please ensure your dataset follows the required structure.")
-                return
-
-            dataset_status.success("Dataset structure verified successfully")
-            dataset_progress.progress(100)
-
-            # Phase 2: Image Loading
-            st.markdown("### Phase 2: Image Loading")
-            loading_status = st.empty()
-            loading_progress = st.progress(0)
-            loading_status.text("Loading and preprocessing images...")
-
-            # Create progress tracking function
-            def update_loading_progress(current, total, message):
-                progress = current / total
-                loading_progress.progress(progress)
-                loading_status.text(f"{message} - {current}/{total} images loaded")
-
-            features, labels = predictor.load_and_preprocess_images(
-                dataset_path,
-                progress_callback=update_loading_progress
-            )
-
-            if features is None or len(features) == 0:
-                loading_status.error("No images were loaded. Please check your dataset.")
-                return
-
-            loading_status.success(f"Successfully loaded {len(features)} images")
-            loading_progress.progress(100)
-
-            # Show dataset statistics
-            unique, counts = np.unique(labels, return_counts=True)
-            class_distribution = dict(zip(unique, counts))
-            st.session_state.class_distribution = class_distribution
-
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Images", len(features))
-            with col2:
-                st.metric("Normal Cases", class_distribution.get('NORMAL', 0))
-            with col3:
-                st.metric("Pneumonia Cases", class_distribution.get('PNEUMONIA', 0))
-
-            # Phase 3: Data Preprocessing
-            st.markdown("### Phase 3: Data Preprocessing")
-            preprocessing_status = st.empty()
-            preprocessing_progress = st.progress(0)
-
-            preprocessing_status.text("Splitting and scaling data...")
-            preprocessing_progress.progress(20)
-
-            X_train, X_test, y_train, y_test = predictor.preprocess_data()
-
-            # Store test data for prediction tab
-            st.session_state.X_test = X_test
-            st.session_state.y_test = y_test
-
-            preprocessing_status.text("Data preprocessing completed")
-            preprocessing_progress.progress(100)
-
-            # Phase 4: Model Training
-            st.markdown("### Phase 4: Model Training")
-
-            # Create separate progress bars for each model
-            svm_status = st.empty()
-            svm_progress = st.progress(0)
-
-            svm_status.text("Training SVM model...")
-            svm_progress.progress(30)
-            svm_model = predictor.train_svm(X_train, y_train)
-            svm_results = predictor.evaluate_model(svm_model, X_test, y_test, 'svm')
-            svm_status.text("SVM training completed")
-            svm_progress.progress(100)
-
-            knn_status = st.empty()
-            knn_progress = st.progress(0)
-
-            knn_status.text("Training KNN model...")
-            knn_progress.progress(30)
-            knn_model = predictor.train_knn(X_train, y_train)
-            knn_results = predictor.evaluate_model(knn_model, X_test, y_test, 'knn')
-            knn_status.text("KNN training completed")
-            knn_progress.progress(100)
-
-            rf_status = st.empty()
-            rf_progress = st.progress(0)
-
-            rf_status.text("Training Random Forest model...")
-            rf_progress.progress(30)
-            rf_model = predictor.train_random_forest(X_train, y_train)
-            rf_results = predictor.evaluate_model(rf_model, X_test, y_test, 'random_forest')
-            rf_status.text("Random Forest training completed")
-            rf_progress.progress(100)
-
-            # Combine results
-            results = {
-                'svm': svm_results,
-                'knn': knn_results,
-                'random_forest': rf_results
-            }
-
-            # Store in session state
-            st.session_state.trained = True
-            st.session_state.predictor = predictor
-            st.session_state.results = results
-            st.session_state.models = predictor.models
-
-            # Show training completion message
-            st.success("Training completed successfully!")
-
-            # Auto-refresh to show results
-            st.rerun()
-
-        # Display results if training is complete
-        if st.session_state.trained and st.session_state.results:
-            st.markdown("---")
-            st.markdown('<h2 class="sub-header">Training Results</h2>', unsafe_allow_html=True)
-
-            # 1. Show dataset distribution
-            if st.session_state.class_distribution:
-                st.markdown("**Dataset Distribution**")
-                dist_df = pd.DataFrame.from_dict(
-                    st.session_state.class_distribution,
-                    orient='index',
-                    columns=['Count']
-                )
-                dist_df['Percentage'] = (dist_df['Count'] / dist_df['Count'].sum() * 100).round(1)
-                st.dataframe(dist_df, use_container_width=True)
-
-            # 2. Show metrics dashboard
-            st.markdown("**Model Performance Metrics**")
-            metrics_fig, metrics_df = create_metrics_dashboard(st.session_state.results)
-            st.plotly_chart(metrics_fig, use_container_width=True)
-
-            # Display metrics in columns
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                best_model = max(st.session_state.results.items(), key=lambda x: x[1]['f1_score'])[0]
-                st.metric("Best Model", best_model.upper())
-                st.metric("Best F1-Score", f"{st.session_state.results[best_model]['f1_score']:.4f}")
-
-            with col2:
-                st.metric("Highest Accuracy",
-                          f"{max([r['accuracy'] for r in st.session_state.results.values()]):.4f}")
-                st.metric("Highest AUC-ROC",
-                          f"{max([r['auc_roc'] for r in st.session_state.results.values()]):.4f}")
-
-            with col3:
-                st.metric("Average Sensitivity",
-                          f"{np.mean([r['sensitivity'] for r in st.session_state.results.values()]):.4f}")
-                st.metric("Average Specificity",
-                          f"{np.mean([r['specificity'] for r in st.session_state.results.values()]):.4f}")
-
-            # 3. Show ROC Curves
-            st.markdown("**ROC Curves Comparison**")
-            roc_fig = create_roc_curves_plot(
-                st.session_state.results,
-                st.session_state.X_test,
-                st.session_state.y_test,
-                st.session_state.models
-            )
-            st.plotly_chart(roc_fig, use_container_width=True)
-
-            # 4. Show Confusion Matrices
-            st.markdown("**Confusion Matrices**")
-            cm_fig = create_confusion_matrices(st.session_state.results)
-            st.plotly_chart(cm_fig, use_container_width=True)
-
-            # 5. Show Learning Curves
-            st.markdown("**Learning Curves**")
-            lc_fig = create_learning_curves_plot()
-            st.plotly_chart(lc_fig, use_container_width=True)
-
-            # 6. Show Calibration Curves
-            st.markdown("**Calibration Curves**")
-            cal_fig = create_calibration_curves_plot(
-                st.session_state.results,
-                st.session_state.X_test,
-                st.session_state.y_test,
-                st.session_state.models
-            )
-            st.plotly_chart(cal_fig, use_container_width=True)
-
-            # 7. Detailed Metrics Table (FIXED: Exclude non-serializable columns)
-            st.markdown("**Detailed Metrics**")
-
-            # Create a clean DataFrame with only serializable columns
-            detailed_data = {}
-            for model_name, metrics in st.session_state.results.items():
-                # Extract only the metrics that can be displayed in a DataFrame
-                detailed_data[model_name] = {
-                    'accuracy': metrics['accuracy'],
-                    'auc_roc': metrics['auc_roc'],
-                    'sensitivity': metrics['sensitivity'],
-                    'specificity': metrics['specificity'],
-                    'f1_score': metrics['f1_score'],
-                    'fp': metrics['fp'],
-                    'fn': metrics['fn'],
-                    'fp_fn': metrics['fp_fn'],
-                    'ppv': metrics['ppv'],
-                    'npv': metrics['npv'],
-                    'mcc': metrics['mcc'],
-                    # Convert confusion matrix to string representation
-                    'confusion_matrix': str(metrics['confusion_matrix'].tolist())
-                }
-
-            detailed_df = pd.DataFrame(detailed_data).T.round(4)
-            st.dataframe(detailed_df, use_container_width=True)
-
-            # 8. Classification Reports
-            st.markdown("**Classification Reports**")
-
-            for model_name, metrics in st.session_state.results.items():
-                with st.expander(f"{model_name.upper()} Classification Report"):
-                    # Create a simple classification report display
-                    report_data = {
-                        'Metric': ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC-ROC', 'MCC'],
-                        'Value': [
-                            f"{metrics['accuracy']:.4f}",
-                            f"{metrics['f1_score']:.4f}",
-                            f"{metrics['sensitivity']:.4f}",
-                            f"{metrics['f1_score']:.4f}",
-                            f"{metrics['auc_roc']:.4f}",
-                            f"{metrics['mcc']:.4f}"
-                        ]
-                    }
-                    report_df = pd.DataFrame(report_data)
-                    st.table(report_df)
-
-        elif not train_button:
-            st.info("Click the 'Train Models' button to start training")
-
-    with tab3:
-        st.markdown('<h2 class="sub-header">Image Prediction</h2>', unsafe_allow_html=True)
-
-        if not st.session_state.trained:
-            st.warning("Please train models first in the 'Model Training' tab.")
-            st.info("Once models are trained, you can upload images for prediction here.")
-        else:
-            # Prediction interface
-            col1, col2 = st.columns([1, 2])
-
-            with col1:
-                st.markdown("### Upload Image")
-
-                # Image uploader
-                uploaded_file = st.file_uploader(
-                    "Choose a chest X-ray image",
-                    type=['jpg', 'jpeg', 'png'],
-                    help="Upload a chest X-ray image for pneumonia detection"
-                )
-
-                # Model selection
-                model_choice = st.selectbox(
-                    "Select Model for Prediction",
-                    options=list(st.session_state.models.keys()),
-                    format_func=lambda x: x.upper(),
-                    index=0
-                )
-
-                predict_button = st.button("Predict", type="primary", use_container_width=True)
-
-            with col2:
-                if uploaded_file is not None:
-                    # Display uploaded image
-                    image = Image.open(uploaded_file)
-                    st.image(image, caption="Uploaded Image", use_column_width=True)
-
-                    # Show image details
-                    img_array = np.array(image)
-                    st.caption(f"Image Size: {img_array.shape[1]}x{img_array.shape[0]} pixels")
-                else:
-                    st.info("Please upload an image to get a prediction")
-                    # Display sample image
-                    st.image("https://via.placeholder.com/400x300?text=Upload+Chest+X-ray",
-                             caption="Sample Chest X-ray", use_column_width=True)
-
-            if predict_button and uploaded_file is not None:
-                try:
-                    # Process the image
-                    with st.spinner("Processing image..."):
-                        # Convert PIL Image to OpenCV format
-                        img_array = np.array(Image.open(uploaded_file).convert('RGB'))
-
-                        # Resize image
-                        img_resized = cv2.resize(img_array, (100, 100))
-                        img_flattened = img_resized.flatten().reshape(1, -1)
-
-                        # Preprocess using the trained scaler
-                        img_scaled = st.session_state.predictor.scaler.transform(img_flattened)
-
-                        # Make prediction
-                        model = st.session_state.models[model_choice]
-                        prediction = model.predict(img_scaled)[0]
-                        prediction_proba = model.predict_proba(img_scaled)[0] if hasattr(model,
-                                                                                         'predict_proba') else None
-
-                        # Get result
-                        result = "PNEUMONIA" if prediction == 1 else "NORMAL"
-                        confidence = prediction_proba[prediction] if prediction_proba is not None else 1.0
-
-                    # Display results
-                    st.markdown("---")
-                    st.markdown("### Prediction Results")
-
-                    # Results in columns
-                    col_result, col_conf = st.columns(2)
-
-                    with col_result:
-                        if result == "PNEUMONIA":
-                            st.error(f"**Prediction: {result}**")
-                        else:
-                            st.success(f"**Prediction: {result}**")
-
-                    with col_conf:
-                        st.metric("Confidence", f"{confidence:.2%}")
-
-                    # Show probability distribution if available
-                    if prediction_proba is not None:
-                        st.markdown("### Probability Distribution")
-
-                        prob_df = pd.DataFrame({
-                            'Class': ['NORMAL', 'PNEUMONIA'],
-                            'Probability': [prediction_proba[0], prediction_proba[1]]
-                        })
-
-                        # Create bar chart
-                        fig = px.bar(
-                            prob_df,
-                            x='Class',
-                            y='Probability',
-                            color='Class',
-                            color_discrete_map={'NORMAL': 'green', 'PNEUMONIA': 'red'},
-                            text='Probability',
-                            title='Class Probabilities'
-                        )
-                        fig.update_traces(texttemplate='%{text:.3f}', textposition='outside')
-                        fig.update_layout(
-                            yaxis=dict(range=[0, 1]),
-                            showlegend=False,
-                            height=400
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-
-                    # Show comparison with all models
-                    st.markdown("### Model Comparison for This Image")
-
-                    # Get predictions from all models
-                    comparison_data = []
-
-                    for model_name, model in st.session_state.models.items():
-                        pred = model.predict(img_scaled)[0]
-                        if hasattr(model, 'predict_proba'):
-                            proba = model.predict_proba(img_scaled)[0]
-                            confidence = proba[pred]
-                        else:
-                            confidence = 1.0
-
-                        comparison_data.append({
-                            'Model': model_name.upper(),
-                            'Prediction': 'PNEUMONIA' if pred == 1 else 'NORMAL',
-                            'Confidence': confidence,
-                            'Normal_Prob': proba[0] if hasattr(model, 'predict_proba') else (1.0 if pred == 0 else 0.0),
-                            'Pneumonia_Prob': proba[1] if hasattr(model, 'predict_proba') else (
-                                1.0 if pred == 1 else 0.0)
-                        })
-
-                    comparison_df = pd.DataFrame(comparison_data)
-
-                    # Display comparison table
-                    st.dataframe(
-                        comparison_df.style.apply(
-                            lambda x: ['background-color: #DFF2BF' if v == 'NORMAL'
-                                       else 'background-color: #FFBABA' for v in x],
-                            subset=['Prediction']
-                        ),
-                        use_container_width=True
-                    )
-
-                    # Create comparison chart
-                    fig_comparison = make_subplots(rows=1, cols=2,
-                                                   subplot_titles=['Normal Probability', 'Pneumonia Probability'])
-
-                    fig_comparison.add_trace(
-                        go.Bar(
-                            x=comparison_df['Model'],
-                            y=comparison_df['Normal_Prob'],
-                            name='Normal',
-                            marker_color='green',
-                            text=comparison_df['Normal_Prob'].round(3),
-                            textposition='auto'
-                        ),
-                        row=1, col=1
-                    )
-
-                    fig_comparison.add_trace(
-                        go.Bar(
-                            x=comparison_df['Model'],
-                            y=comparison_df['Pneumonia_Prob'],
-                            name='Pneumonia',
-                            marker_color='red',
-                            text=comparison_df['Pneumonia_Prob'].round(3),
-                            textposition='auto'
-                        ),
-                        row=1, col=2
-                    )
-
-                    fig_comparison.update_layout(
-                        height=400,
-                        showlegend=False,
-                        yaxis=dict(range=[0, 1]),
-                        yaxis2=dict(range=[0, 1])
-                    )
-
-                    st.plotly_chart(fig_comparison, use_container_width=True)
-
-                    # Clinical recommendations
-                    st.markdown("### Clinical Considerations")
-
-                    if result == "PNEUMONIA":
-                        st.warning("""
-                        **Recommended Actions:**
-                        1. Consult with a radiologist for confirmation
-                        2. Consider additional tests or imaging if needed
-                        3. Monitor patient symptoms closely
-                        4. Follow standard pneumonia treatment protocols if confirmed
-                        """)
-                    else:
-                        st.success("""
-                        **Note:** While the model predicts no pneumonia, please:
-                        1. Continue standard clinical assessment
-                        2. Consider other possible conditions if symptoms persist
-                        3. Follow up as clinically indicated
-                        """)
-
-                except Exception as e:
-                    st.error(f"Error during prediction: {str(e)}")
-                    st.info("Please ensure the image is a valid chest X-ray and try again.")
+        """)
+        return
+
+    # Run the app
+    app.run()
 
 
 if __name__ == "__main__":
