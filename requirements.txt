@@ -1,11 +1,26 @@
+# Core packages
 streamlit
+numpy
+pandas
 matplotlib
 seaborn
-opencv-python-headless
+
+# Machine Learning
 scikit-learn
-pandas
-plotly
+
+# Image Processing
+opencv-python-headless
 Pillow
-joblib
+
+# Visualization
+plotly
+
+# Utilities
 tqdm
-numpy
+
+# For better compatibility
+joblib
+threadpoolctl
+
+# Optional: For better performance
+scipy
