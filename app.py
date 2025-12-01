@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 # Set page configuration
 st.set_page_config(
     page_title="Chest X-Ray Pneumonia Detection",
-    page_icon="🩺",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -36,19 +36,16 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
-    .main-header {
+  .main-header {
         font-size: 2.5rem;
-        color: #1E3A8A;
+        color: #ffffff;
         text-align: center;
         padding: 1rem;
-        background: linear-gradient(90deg, #1E3A8A, #3B82F6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
         font-weight: bold;
     }
     .sub-header {
         font-size: 1.8rem;
-        color: #2563EB;
+        color: #fff;
         margin-top: 2rem;
         margin-bottom: 1rem;
         font-weight: bold;
@@ -68,15 +65,22 @@ st.markdown("""
         border-radius: 10px;
         margin: 1rem 0;
     }
-    .tab-content {
-        padding: 2rem;
-        border-radius: 10px;
-        background-color: #FFFFFF;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin: 1rem 0;
-    }
+    # .tab-content {
+    #     padding: 2rem;
+    #     border-radius: 10px;
+    #     background-color: #FFFFFF;
+    #     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    #     margin: 1rem 0;
+    # }
     .stProgress > div > div > div > div {
         background-color: #3B82F6;
+    }
+    .process-step {
+        background-color: #EFF6FF;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #3B82F6;
+        margin: 0.5rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -214,8 +218,6 @@ class ChestXRayMLPredictor:
 
     def train_svm(self, X_train, y_train):
         """Train SVM with RBF kernel"""
-        st.info("Training SVM with RBF kernel...")
-
         # Use optimized parameters for speed
         svm = SVC(C=1.0, kernel='rbf', gamma='scale', random_state=42, probability=True)
         svm.fit(X_train, y_train)
@@ -225,8 +227,6 @@ class ChestXRayMLPredictor:
 
     def train_knn(self, X_train, y_train):
         """Train KNN classifier"""
-        st.info("Training K-Nearest Neighbors...")
-
         knn = KNeighborsClassifier(n_neighbors=5, weights='uniform', metric='euclidean')
         knn.fit(X_train, y_train)
 
@@ -235,8 +235,6 @@ class ChestXRayMLPredictor:
 
     def train_random_forest(self, X_train, y_train):
         """Train Random Forest classifier"""
-        st.info("Training Random Forest...")
-
         rf = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
         rf.fit(X_train, y_train)
 
@@ -561,28 +559,9 @@ def create_calibration_curves_plot(results, X_test, y_test, models):
     return fig
 
 
-def train_models(predictor, X_train, X_test, y_train, y_test):
-    """Train all models and return results"""
-    results = {}
-
-    # Train SVM
-    svm_model = predictor.train_svm(X_train, y_train)
-    results['svm'] = predictor.evaluate_model(svm_model, X_test, y_test, 'svm')
-
-    # Train KNN
-    knn_model = predictor.train_knn(X_train, y_train)
-    results['knn'] = predictor.evaluate_model(knn_model, X_test, y_test, 'knn')
-
-    # Train Random Forest
-    rf_model = predictor.train_random_forest(X_train, y_train)
-    results['random_forest'] = predictor.evaluate_model(rf_model, X_test, y_test, 'random_forest')
-
-    return results
-
-
 def main():
     """Main Streamlit app"""
-    st.markdown('<h1 class="main-header">🩺 Chest X-Ray Pneumonia Detection System</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Chest X-Ray Pneumonia Detection System</h1>', unsafe_allow_html=True)
 
     # Initialize session state
     if 'trained' not in st.session_state:
@@ -601,7 +580,7 @@ def main():
         st.session_state.class_distribution = None
 
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["📚 System Information", "🤖 Model Training", "🔍 Prediction"])
+    tab1, tab2, tab3 = st.tabs(["System Information", "Model Training", "Prediction"])
 
     with tab1:
         st.markdown('<div class="tab-content">', unsafe_allow_html=True)
@@ -612,7 +591,7 @@ def main():
 
         with col1:
             st.markdown("""
-            ### 🎯 Purpose
+            ### Purpose
             This system uses machine learning to detect pneumonia from chest X-ray images. 
             It implements three different models:
 
@@ -620,7 +599,7 @@ def main():
             - **K-Nearest Neighbors (KNN)**: Distance-based classifier
             - **Random Forest**: Ensemble learning method
 
-            ### 🏥 Medical Significance
+            ### Medical Significance
             - Early detection of pneumonia can save lives
             - Reduces diagnostic time from hours to seconds
             - Assists radiologists in making informed decisions
@@ -629,7 +608,7 @@ def main():
 
         with col2:
             st.markdown("""
-            ### 🔬 Technical Architecture
+            ### Technical Architecture
 
             **Image Processing Pipeline:**
             1. Image loading and RGB conversion
@@ -650,13 +629,13 @@ def main():
 
         st.markdown("---")
 
-        st.markdown('<h2 class="sub-header">📊 Dataset Information</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 class="sub-header">Dataset Information</h2>', unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
 
         with col1:
             st.markdown("""
-            ### 📂 Dataset Structure
+            ### Dataset Structure
 
             Required directory structure:
             ```
@@ -669,7 +648,7 @@ def main():
                 └── PNEUMONIA/
             ```
 
-            ### 📈 Sample Statistics
+            ### Sample Statistics
             - Original dataset: ~5,863 images
             - Normal cases: ~1,583 images
             - Pneumonia cases: ~4,280 images
@@ -679,7 +658,7 @@ def main():
 
         with col2:
             st.markdown("""
-            ### ⚠️ Limitations & Considerations
+            ### Limitations & Considerations
 
             **Clinical Considerations:**
             - This is an assistive tool, not a replacement for medical professionals
@@ -700,18 +679,21 @@ def main():
 
         st.markdown("---")
 
-        st.markdown('<h2 class="sub-header">📋 How to Use</h2>', unsafe_allow_html=True)
+        # st.markdown('<h2 class="sub-header">Training Process</h2>', unsafe_allow_html=True)
+        #
+        # process_steps = [
+        #     "Dataset Verification: System checks the dataset structure and validates image files",
+        #     "Image Loading: Images are loaded from both train and test directories",
+        #     "Preprocessing: Images are resized to 100x100 pixels and converted to feature vectors",
+        #     "Data Splitting: Data is split into 80% training and 20% testing sets",
+        #     "Feature Scaling: Features are standardized using StandardScaler",
+        #     "Model Training: Three models (SVM, KNN, Random Forest) are trained sequentially",
+        #     "Evaluation: Each model is evaluated on the test set using multiple metrics",
+        #     "Visualization: Performance metrics, ROC curves, and confusion matrices are generated"
+        # ]
 
-        steps = [
-            "1. **Prepare Dataset**: Ensure your dataset is in the correct structure",
-            "2. **Navigate to Training Tab**: Click on the '🤖 Model Training' tab",
-            "3. **Start Training**: Click the 'Train Models' button",
-            "4. **View Results**: All visualizations will appear automatically",
-            "5. **Make Predictions**: Use the '🔍 Prediction' tab to test new images"
-        ]
-
-        for step in steps:
-            st.markdown(f'<div class="metric-box">{step}</div>', unsafe_allow_html=True)
+        # for step in process_steps:
+        #     st.markdown(f'<div class="process-step">{step}</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -720,60 +702,57 @@ def main():
 
         st.markdown('<h2 class="sub-header">Model Training & Evaluation</h2>', unsafe_allow_html=True)
 
-        # Dataset path input
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            dataset_path = st.text_input(
-                "Dataset Path",
-                value="./dataset/chest_xray",
-                help="Path to your dataset directory"
-            )
-
-        with col2:
-            img_size = st.selectbox(
-                "Image Size",
-                options=["100x100", "128x128", "150x150"],
-                index=0
-            )
+        # Fixed dataset path
+        dataset_path = "./dataset/chest_xray"
 
         # Training button
-        train_button = st.button("🚀 Train Models", type="primary", use_container_width=True)
+        train_button = st.button("Train Models", type="primary", use_container_width=True)
 
         if train_button:
-            # Check dataset structure
-            with st.spinner("Checking dataset structure..."):
-                predictor = ChestXRayMLPredictor(
-                    img_height=int(img_size.split('x')[0]),
-                    img_width=int(img_size.split('x')[1])
-                )
+            # Phase 1: Dataset Verification
+            st.markdown("### Phase 1: Dataset Verification")
+            dataset_status = st.empty()
+            dataset_progress = st.progress(0)
 
-                dataset_ok, issues = predictor.debug_dataset_structure(dataset_path)
+            dataset_status.text("Checking dataset structure...")
+            predictor = ChestXRayMLPredictor(img_height=100, img_width=100)
 
-                if not dataset_ok:
-                    st.error("❌ Dataset structure issues found:")
-                    for issue in issues:
-                        st.error(f"   - {issue}")
-                    st.info("Please ensure your dataset follows the required structure.")
-                    return
+            dataset_ok, issues = predictor.debug_dataset_structure(dataset_path)
+            dataset_progress.progress(30)
 
-            # Load images with progress
-            st.info("📥 Loading and preprocessing images...")
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+            if not dataset_ok:
+                dataset_status.error("Dataset structure issues found:")
+                for issue in issues:
+                    st.error(f"- {issue}")
+                st.info("Please ensure your dataset follows the required structure.")
+                return
 
-            def update_progress(current, total, message):
+            dataset_status.success("Dataset structure verified successfully")
+            dataset_progress.progress(100)
+
+            # Phase 2: Image Loading
+            st.markdown("### Phase 2: Image Loading")
+            loading_status = st.empty()
+            loading_progress = st.progress(0)
+            loading_status.text("Loading and preprocessing images...")
+
+            # Create progress tracking function
+            def update_loading_progress(current, total, message):
                 progress = current / total
-                progress_bar.progress(progress)
-                status_text.text(f"{message} - {current}/{total} images")
+                loading_progress.progress(progress)
+                loading_status.text(f"{message} - {current}/{total} images loaded")
 
             features, labels = predictor.load_and_preprocess_images(
                 dataset_path,
-                progress_callback=update_progress
+                progress_callback=update_loading_progress
             )
 
             if features is None or len(features) == 0:
-                st.error("❌ No images were loaded. Please check your dataset.")
+                loading_status.error("No images were loaded. Please check your dataset.")
                 return
+
+            loading_status.success(f"Successfully loaded {len(features)} images")
+            loading_progress.progress(100)
 
             # Show dataset statistics
             unique, counts = np.unique(labels, return_counts=True)
@@ -788,37 +767,63 @@ def main():
             with col3:
                 st.metric("Pneumonia Cases", class_distribution.get('PNEUMONIA', 0))
 
-            # Preprocess data
-            st.info("⚙️ Preprocessing data...")
+            # Phase 3: Data Preprocessing
+            st.markdown("### Phase 3: Data Preprocessing")
+            preprocessing_status = st.empty()
+            preprocessing_progress = st.progress(0)
+
+            preprocessing_status.text("Splitting and scaling data...")
+            preprocessing_progress.progress(20)
+
             X_train, X_test, y_train, y_test = predictor.preprocess_data()
 
             # Store test data for prediction tab
             st.session_state.X_test = X_test
             st.session_state.y_test = y_test
 
-            # Train models
-            st.info("🤖 Training models...")
+            preprocessing_status.text("Data preprocessing completed")
+            preprocessing_progress.progress(100)
 
-            # Create a placeholder for training status
-            training_status = st.empty()
+            # Phase 4: Model Training
+            st.markdown("### Phase 4: Model Training")
 
-            # Train models sequentially with progress
-            results = {}
+            # Create separate progress bars for each model
+            svm_status = st.empty()
+            svm_progress = st.progress(0)
 
-            # SVM Training
-            training_status.info("Training SVM...")
+            svm_status.text("Training SVM model...")
+            svm_progress.progress(30)
             svm_model = predictor.train_svm(X_train, y_train)
-            results['svm'] = predictor.evaluate_model(svm_model, X_test, y_test, 'svm')
+            svm_results = predictor.evaluate_model(svm_model, X_test, y_test, 'svm')
+            svm_status.text("SVM training completed")
+            svm_progress.progress(100)
 
-            # KNN Training
-            training_status.info("Training KNN...")
+            knn_status = st.empty()
+            knn_progress = st.progress(0)
+
+            knn_status.text("Training KNN model...")
+            knn_progress.progress(30)
             knn_model = predictor.train_knn(X_train, y_train)
-            results['knn'] = predictor.evaluate_model(knn_model, X_test, y_test, 'knn')
+            knn_results = predictor.evaluate_model(knn_model, X_test, y_test, 'knn')
+            knn_status.text("KNN training completed")
+            knn_progress.progress(100)
 
-            # Random Forest Training
-            training_status.info("Training Random Forest...")
+            rf_status = st.empty()
+            rf_progress = st.progress(0)
+
+            rf_status.text("Training Random Forest model...")
+            rf_progress.progress(30)
             rf_model = predictor.train_random_forest(X_train, y_train)
-            results['random_forest'] = predictor.evaluate_model(rf_model, X_test, y_test, 'random_forest')
+            rf_results = predictor.evaluate_model(rf_model, X_test, y_test, 'random_forest')
+            rf_status.text("Random Forest training completed")
+            rf_progress.progress(100)
+
+            # Combine results
+            results = {
+                'svm': svm_results,
+                'knn': knn_results,
+                'random_forest': rf_results
+            }
 
             # Store in session state
             st.session_state.trained = True
@@ -826,18 +831,20 @@ def main():
             st.session_state.results = results
             st.session_state.models = predictor.models
 
-            training_status.success("✅ Training completed!")
-            progress_bar.empty()
-            status_text.empty()
+            # Show training completion message
+            st.success("Training completed successfully!")
+
+            # Auto-refresh to show results
+            st.rerun()
 
         # Display results if training is complete
         if st.session_state.trained and st.session_state.results:
             st.markdown("---")
-            st.markdown('<h2 class="sub-header">📊 Training Results</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="sub-header">Training Results</h2>', unsafe_allow_html=True)
 
             # 1. Show dataset distribution
             if st.session_state.class_distribution:
-                st.info("📈 Dataset Distribution")
+                st.markdown("**Dataset Distribution**")
                 dist_df = pd.DataFrame.from_dict(
                     st.session_state.class_distribution,
                     orient='index',
@@ -847,7 +854,7 @@ def main():
                 st.dataframe(dist_df, use_container_width=True)
 
             # 2. Show metrics dashboard
-            st.info("📋 Model Performance Metrics")
+            st.markdown("**Model Performance Metrics**")
             metrics_fig, metrics_df = create_metrics_dashboard(st.session_state.results)
             st.plotly_chart(metrics_fig, use_container_width=True)
 
@@ -855,7 +862,7 @@ def main():
             col1, col2, col3 = st.columns(3)
             with col1:
                 best_model = max(st.session_state.results.items(), key=lambda x: x[1]['f1_score'])[0]
-                st.metric("🏆 Best Model", best_model.upper())
+                st.metric("Best Model", best_model.upper())
                 st.metric("Best F1-Score", f"{st.session_state.results[best_model]['f1_score']:.4f}")
 
             with col2:
@@ -871,7 +878,7 @@ def main():
                           f"{np.mean([r['specificity'] for r in st.session_state.results.values()]):.4f}")
 
             # 3. Show ROC Curves
-            st.info("📈 ROC Curves Comparison")
+            st.markdown("**ROC Curves Comparison**")
             roc_fig = create_roc_curves_plot(
                 st.session_state.results,
                 st.session_state.X_test,
@@ -881,17 +888,17 @@ def main():
             st.plotly_chart(roc_fig, use_container_width=True)
 
             # 4. Show Confusion Matrices
-            st.info("🎯 Confusion Matrices")
+            st.markdown("**Confusion Matrices**")
             cm_fig = create_confusion_matrices(st.session_state.results)
             st.plotly_chart(cm_fig, use_container_width=True)
 
             # 5. Show Learning Curves
-            st.info("📚 Learning Curves")
+            st.markdown("**Learning Curves**")
             lc_fig = create_learning_curves_plot()
             st.plotly_chart(lc_fig, use_container_width=True)
 
             # 6. Show Calibration Curves
-            st.info("⚖️ Calibration Curves")
+            st.markdown("**Calibration Curves**")
             cal_fig = create_calibration_curves_plot(
                 st.session_state.results,
                 st.session_state.X_test,
@@ -901,12 +908,12 @@ def main():
             st.plotly_chart(cal_fig, use_container_width=True)
 
             # 7. Detailed Metrics Table
-            st.info("🔍 Detailed Metrics")
+            st.markdown("**Detailed Metrics**")
             detailed_df = pd.DataFrame(st.session_state.results).T
             st.dataframe(detailed_df, use_container_width=True)
 
             # 8. Classification Reports
-            st.info("📝 Classification Reports")
+            st.markdown("**Classification Reports**")
 
             for model_name, metrics in st.session_state.results.items():
                 with st.expander(f"{model_name.upper()} Classification Report"):
@@ -926,7 +933,7 @@ def main():
                     st.table(report_df)
 
         elif not train_button:
-            st.info("👈 Click the 'Train Models' button to start training")
+            st.info("Click the 'Train Models' button to start training")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -936,7 +943,7 @@ def main():
         st.markdown('<h2 class="sub-header">Image Prediction</h2>', unsafe_allow_html=True)
 
         if not st.session_state.trained:
-            st.warning("⚠️ Please train models first in the 'Model Training' tab.")
+            st.warning("Please train models first in the 'Model Training' tab.")
             st.info("Once models are trained, you can upload images for prediction here.")
         else:
             # Prediction interface
@@ -960,7 +967,7 @@ def main():
                     index=0
                 )
 
-                predict_button = st.button("🔍 Predict", type="primary", use_container_width=True)
+                predict_button = st.button("Predict", type="primary", use_container_width=True)
 
             with col2:
                 if uploaded_file is not None:
@@ -972,7 +979,7 @@ def main():
                     img_array = np.array(image)
                     st.caption(f"Image Size: {img_array.shape[1]}x{img_array.shape[0]} pixels")
                 else:
-                    st.info("📤 Please upload an image to get a prediction")
+                    st.info("Please upload an image to get a prediction")
                     # Display sample image
                     st.image("https://via.placeholder.com/400x300?text=Upload+Chest+X-ray",
                              caption="Sample Chest X-ray", use_column_width=True)
@@ -1003,7 +1010,7 @@ def main():
 
                     # Display results
                     st.markdown("---")
-                    st.markdown("### 📊 Prediction Results")
+                    st.markdown("### Prediction Results")
 
                     # Results in columns
                     col_result, col_conf = st.columns(2)
@@ -1019,7 +1026,7 @@ def main():
 
                     # Show probability distribution if available
                     if prediction_proba is not None:
-                        st.info("### Probability Distribution")
+                        st.markdown("### Probability Distribution")
 
                         prob_df = pd.DataFrame({
                             'Class': ['NORMAL', 'PNEUMONIA'],
@@ -1045,7 +1052,7 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
 
                     # Show comparison with all models
-                    st.info("### 📈 Model Comparison for This Image")
+                    st.markdown("### Model Comparison for This Image")
 
                     # Get predictions from all models
                     comparison_data = []
@@ -1117,7 +1124,7 @@ def main():
                     st.plotly_chart(fig_comparison, use_container_width=True)
 
                     # Clinical recommendations
-                    st.info("### 🩺 Clinical Considerations")
+                    st.markdown("### Clinical Considerations")
 
                     if result == "PNEUMONIA":
                         st.warning("""
