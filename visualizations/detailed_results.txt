@@ -1,6 +1,6 @@
 CHEST X-RAY PNEUMONIA DETECTION - DETAILED RESULTS
 ============================================================
-Generated on: 2025-12-01 11:06:06
+Generated on: 2025-12-01 19:36:59
 Total images: 5856
 Class distribution: {np.str_('NORMAL'): np.int64(1583), np.str_('PNEUMONIA'): np.int64(4273)}
 
