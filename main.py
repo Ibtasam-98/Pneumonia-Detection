@@ -930,7 +930,6 @@ class ChestXRayMLPredictor:
                 summary_text += f"  {i}. {model.upper()}: {value:.4f}\n"
             summary_text += "\n"
 
-        # Add best model overall (based on average ranking)
         avg_rankings = {}
         for model_name in self.metrics_history.keys():
             total_rank = 0
@@ -940,7 +939,7 @@ class ChestXRayMLPredictor:
             avg_rankings[model_name] = total_rank / 4
 
         best_model = min(avg_rankings, key=avg_rankings.get)
-        summary_text += f"\n🏆 BEST OVERALL MODEL: {best_model.upper()}"
+        summary_text += f"\nBEST OVERALL MODEL: {best_model.upper()}"
         summary_text += f"\nAverage Ranking: {avg_rankings[best_model]:.2f}"
 
         ax11.text(0.05, 0.95, summary_text, transform=ax11.transAxes,
