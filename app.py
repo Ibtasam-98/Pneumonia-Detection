@@ -1,4 +1,3 @@
-# app.py - Streamlit Web Application for Chest X-Ray Pneumonia Detection
 import streamlit as st
 import pandas as pd
 import numpy as np
