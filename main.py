@@ -304,7 +304,6 @@ class ChestXRayMLPredictor:
         return best_rf
 
     def print_confusion_matrix(self, cm, model_name):
-        """Print confusion matrix in terminal"""
         print(f"\n{model_name.upper()} - Confusion Matrix:")
         print("-" * 40)
 
@@ -316,7 +315,6 @@ class ChestXRayMLPredictor:
         print(tabulate(cm_table, headers=["Predicted Positive", "Predicted Negative"],
                        showindex=["Actual Positive", "Actual Negative"], tablefmt="grid"))
 
-        # Calculate metrics from confusion matrix
         tn, fp, fn, tp = cm.ravel()
 
         metrics_table = [
