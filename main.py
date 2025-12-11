@@ -1018,13 +1018,13 @@ class ChestXRayMLPredictor:
 
         print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".4f"))
 
-        # Add ranking section
+
         print("\n" + "=" * 100)
         print("MODEL RANKINGS")
         print("=" * 100)
 
         ranking_data = []
-        for metric, _ in metrics_info[:10]:  # First 10 metrics for ranking
+        for metric, _ in metrics_info[:10]:
             sorted_models = sorted(self.metrics_history.items(),
                                    key=lambda x: x[1].get(metric, 0), reverse=True)
             ranking_row = [metric.upper().replace('_', ' ')]
@@ -1221,13 +1221,13 @@ def main():
     if args.mode == 'train':
         try:
             if not predictor.debug_dataset_structure(args.data_dir):
-                print("❌ Dataset structure issue detected.")
+                print("Dataset structure issue detected.")
                 return
 
             features, labels = predictor.load_and_preprocess_images(args.data_dir)
 
             if features is None or len(features) == 0:
-                print("❌ No images were loaded.")
+                print("No images were loaded.")
                 return
 
             X_train, X_test, y_train, y_test = predictor.preprocess_data(
