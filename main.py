@@ -974,7 +974,7 @@ class ChestXRayMLPredictor:
                     facecolor='white', edgecolor='none')
         plt.close()
 
-        print(f"✅ Comprehensive visualization saved: {filename}")
+        print(f"Comprehensive visualization saved: {filename}")
 
         # Also print summary table in terminal
         self.print_summary_table()
@@ -1304,13 +1304,13 @@ def main():
 
 def quick_start():
     """Quick start function"""
-    print("🚀 Quick Start: Chest X-Ray Pneumonia Detection with ML")
+    print("Quick Start: Chest X-Ray Pneumonia Detection with ML")
     print("=" * 60)
 
     predictor = ChestXRayMLPredictor(img_height=100, img_width=100)
 
     if os.path.exists('chest_xray_models.pkl'):
-        print("✅ Pre-trained models found! Loading models...")
+        print("Pre-trained models found! Loading models...")
         predictor.load_models('chest_xray_models.pkl')
 
         sample_images = [
@@ -1327,23 +1327,23 @@ def quick_start():
                     except Exception as e:
                         print(f"Error with {model_name}: {e}")
             else:
-                print(f"⚠️  Sample image not found: {img_path}")
+                print(f"Sample image not found: {img_path}")
 
     else:
-        print("🔄 No pre-trained models found. Starting training...")
+        print("No pre-trained models found. Starting training...")
         try:
             if not predictor.debug_dataset_structure():
-                print("❌ Dataset structure issue detected.")
+                print("Dataset structure issue detected.")
                 return
 
-            print("\n📥 Loading and preprocessing images...")
+            print("\nLoading and preprocessing images...")
             features, labels = predictor.load_and_preprocess_images()
 
             if features is None or len(features) == 0:
-                print("❌ No images were loaded.")
+                print("No images were loaded.")
                 return
 
-            print(f"✅ Successfully loaded {len(features)} images")
+            print(f"Successfully loaded {len(features)} images")
 
             X_train, X_test, y_train, y_test = predictor.preprocess_data(
                 use_advanced_features=False,
@@ -1351,19 +1351,19 @@ def quick_start():
                 n_components=50
             )
 
-            print("\n🤖 Training models...")
+            print("\nTraining models...")
             predictor.train_svm(X_train, y_train, cv_tuning=True)
             predictor.train_knn(X_train, y_train, cv_tuning=True)
             predictor.train_random_forest(X_train, y_train, cv_tuning=True)
 
-            print("\n📊 Evaluating models...")
+            print("\nEvaluating models...")
             results = predictor.evaluate_all_models(X_train, X_test, y_train, y_test)
             predictor.save_models()
 
-            print("\n🎉 Training completed!")
+            print("\nTraining completed!")
 
         except Exception as e:
-            print(f"❌ Error during training: {e}")
+            print(f"Error during training: {e}")
             import traceback
             traceback.print_exc()
 
