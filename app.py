@@ -822,7 +822,6 @@ class ChestXRayApp:
             st.warning(f"Visualizations directory '{viz_dir}' not found.")
             return
 
-        # Create sub-tabs for different visualizations
         viz_tab1, viz_tab2, viz_tab3, viz_tab4 = st.tabs([
             "Learning Curves",
             "Calibration Curves",
