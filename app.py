@@ -618,59 +618,7 @@ class ChestXRayApp:
                                 else:
                                     st.warning("Some models may have misclassified this sample")
 
-            # Batch prediction section
-            # st.markdown("---")
-            # st.markdown("### Batch Prediction")
-            #
-            # batch_files = st.file_uploader(
-            #     "Upload multiple images for batch analysis",
-            #     type=['jpg', 'jpeg', 'png'],
-            #     accept_multiple_files=True,
-            #     label_visibility="collapsed"
-            # )
-            #
-            # if batch_files:
-            #     if st.button("Analyze All Images", type="secondary", use_container_width=True):
-            #         with st.spinner(f"Analyzing {len(batch_files)} images with all models..."):
-            #             all_results = []
-            #
-            #             for i, file in enumerate(batch_files):
-            #                 img = Image.open(file)
-            #                 predictions = self.predict_all_models(img)
-            #
-            #                 if predictions:
-            #                     # Get consensus
-            #                     consensus_count = {}
-            #                     for model_name, result in predictions.items():
-            #                         pred = result['prediction']
-            #                         consensus_count[pred] = consensus_count.get(pred, 0) + 1
-            #
-            #                     # Determine final prediction (majority vote)
-            #                     final_prediction = max(consensus_count.items(), key=lambda x: x[1])[
-            #                         0] if consensus_count else "UNKNOWN"
-            #
-            #                     all_results.append({
-            #                         'Image': file.name,
-            #                         'SVM': predictions.get('svm', {}).get('prediction', 'N/A'),
-            #                         'KNN': predictions.get('knn', {}).get('prediction', 'N/A'),
-            #                         'Random Forest': predictions.get('random_forest', {}).get('prediction', 'N/A'),
-            #                         'Final Prediction': final_prediction,
-            #                         'Agreement': f"{consensus_count.get(final_prediction, 0)}/3 models"
-            #                     })
-            #
-            #             if all_results:
-            #                 results_df = pd.DataFrame(all_results)
-            #                 st.dataframe(results_df, use_container_width=True)
-            #
-            #                 # Summary statistics
-            #                 normal_count = sum(1 for r in all_results if r['Final Prediction'] == 'NORMAL')
-            #                 pneumonia_count = sum(1 for r in all_results if r['Final Prediction'] == 'PNEUMONIA')
-            #
-            #                 summary_col1, summary_col2 = st.columns(2)
-            #                 with summary_col1:
-            #                     st.metric("Normal", normal_count)
-            #                 with summary_col2:
-            #                     st.metric("Pneumonia", pneumonia_count)
+
 
     def show_analysis(self):
         """Show analysis tab"""
