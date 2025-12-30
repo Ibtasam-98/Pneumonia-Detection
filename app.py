@@ -628,7 +628,6 @@ class ChestXRayApp:
             st.warning("No performance data available. Please run training first.")
             return
 
-        # Detailed metrics table
         st.markdown("### Detailed Metrics Table")
 
         detailed_metrics = self.results.copy()
