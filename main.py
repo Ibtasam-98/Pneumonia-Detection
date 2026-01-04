@@ -23,6 +23,7 @@ import argparse
 from datetime import datetime
 from tabulate import tabulate
 import warnings
+import time
 
 warnings.filterwarnings('ignore')
 
@@ -40,6 +41,8 @@ class ChestXRayMLPredictor:
         self.results = {}
         self.visualization_dir = "visualizations"
         self.metrics_history = {}
+        self.training_times = {}
+        self.inference_times = {}
 
         # Create visualization directory
         os.makedirs(self.visualization_dir, exist_ok=True)
@@ -220,6 +223,7 @@ class ChestXRayMLPredictor:
 
     def train_svm(self, X_train, y_train, cv_tuning=True):
         """Train SVM with RBF kernel"""
+        start_time = time.time()
         print("\n" + "=" * 50)
         print("TRAINING SVM WITH RBF KERNEL")
         print("=" * 50)
@@ -243,11 +247,16 @@ class ChestXRayMLPredictor:
             best_svm = SVC(C=1.0, kernel='rbf', gamma='scale', random_state=42, probability=True)
             best_svm.fit(X_train, y_train)
 
+        training_time = time.time() - start_time
+        print(f"Training completed in {training_time:.2f} seconds")
+
         self.models['svm'] = best_svm
+        self.training_times['svm'] = training_time
         return best_svm
 
     def train_knn(self, X_train, y_train, cv_tuning=True):
         """Train KNN classifier"""
+        start_time = time.time()
         print("\n" + "=" * 50)
         print("TRAINING K-NEAREST NEIGHBORS")
         print("=" * 50)
@@ -271,11 +280,16 @@ class ChestXRayMLPredictor:
             best_knn = KNeighborsClassifier(n_neighbors=5, weights='uniform', metric='euclidean')
             best_knn.fit(X_train, y_train)
 
+        training_time = time.time() - start_time
+        print(f"Training completed in {training_time:.2f} seconds")
+
         self.models['knn'] = best_knn
+        self.training_times['knn'] = training_time
         return best_knn
 
     def train_random_forest(self, X_train, y_train, cv_tuning=True):
         """Train Random Forest classifier"""
+        start_time = time.time()
         print("\n" + "=" * 50)
         print("TRAINING RANDOM FOREST")
         print("=" * 50)
@@ -300,8 +314,63 @@ class ChestXRayMLPredictor:
             best_rf = RandomForestClassifier(n_estimators=100, random_state=42)
             best_rf.fit(X_train, y_train)
 
+        training_time = time.time() - start_time
+        print(f"Training completed in {training_time:.2f} seconds")
+
         self.models['random_forest'] = best_rf
+        self.training_times['random_forest'] = training_time
         return best_rf
+
+    def measure_inference_time(self, model, X_test, num_runs=100):
+        """Measure inference time for a model"""
+        if not hasattr(model, 'predict'):
+            return 0
+
+        # Warm up
+        model.predict(X_test[:1])
+
+        # Measure inference time
+        start_time = time.perf_counter()
+        for _ in range(num_runs):
+            model.predict(X_test[:1])  # Predict single sample
+        total_time = time.perf_counter() - start_time
+
+        # Average inference time per image in milliseconds
+        avg_inference_time_ms = (total_time / num_runs) * 1000
+        return avg_inference_time_ms
+
+    def measure_all_inference_times(self, X_test):
+        """Measure inference times for all models"""
+        print("\n📊 Measuring inference times...")
+
+        for model_name, model in self.models.items():
+            inference_time = self.measure_inference_time(model, X_test)
+            self.inference_times[model_name] = inference_time
+            print(f"  {model_name.upper()}: {inference_time:.2f} ms/image")
+
+    def print_timing_summary(self):
+        """Print timing summary table"""
+        if not self.training_times or not self.inference_times:
+            print("No timing data available.")
+            return
+
+        print("\n" + "=" * 60)
+        print("MODEL TRAINING AND INFERENCE TIMING SUMMARY")
+        print("=" * 60)
+
+        table_data = []
+        for model_name in self.models.keys():
+            train_time = self.training_times.get(model_name, 0)
+            inf_time = self.inference_times.get(model_name, 0)
+            table_data.append([
+                model_name.upper(),
+                f"{train_time:.2f} s",
+                f"{inf_time:.2f} ms"
+            ])
+
+        print(tabulate(table_data,
+                       headers=["Model", "Training Time", "Inference Time/Image"],
+                       tablefmt="grid"))
 
     def print_confusion_matrix(self, cm, model_name):
         print(f"\n{model_name.upper()} - Confusion Matrix:")
@@ -577,7 +646,9 @@ class ChestXRayMLPredictor:
             'tpr_curve': tpr_curve,
             'precision_curve': precision_curve,
             'recall_curve': recall_curve,
-            'confusion_matrix': cm
+            'confusion_matrix': cm,
+            'training_time': self.training_times.get(model_name, 0),
+            'inference_time': self.inference_times.get(model_name, 0)
         }
 
         self.metrics_history[model_name] = metrics
@@ -590,6 +661,16 @@ class ChestXRayMLPredictor:
         print(f"\n{'=' * 80}")
         print(f"{model_name.upper()} - COMPREHENSIVE METRICS ANALYSIS")
         print(f"{'=' * 80}")
+
+        # Print timing information first
+        print("\n⏱️  TIMING INFORMATION:")
+        print("-" * 40)
+
+        timing_table = [
+            ["Training Time", f"{metrics['training_time']:.2f} seconds"],
+            ["Inference Time", f"{metrics['inference_time']:.2f} ms/image"]
+        ]
+        print(tabulate(timing_table, headers=["Metric", "Value"], tablefmt="grid"))
 
         # 1. Basic Performance Metrics
         print("\n📊 1. BASIC PERFORMANCE METRICS:")
@@ -989,8 +1070,24 @@ class ChestXRayMLPredictor:
         table_data = []
         headers = ["Metric", "Description"] + [m.upper() for m in self.metrics_history.keys()]
 
-        # Define metrics with descriptions
-        metrics_info = [
+        # Add timing metrics first
+        timing_metrics = [
+            ("training_time", "Training time in seconds", "s"),
+            ("inference_time", "Inference time per image in milliseconds", "ms")
+        ]
+
+        for metric, description, unit in timing_metrics:
+            row = [f"{metric.upper().replace('_', ' ')} ({unit})", description]
+            for model_name in self.metrics_history.keys():
+                value = self.metrics_history[model_name].get(metric, 0)
+                if metric in ['training_time', 'inference_time']:
+                    row.append(f"{value:.2f}")
+                else:
+                    row.append(f"{value:.4f}")
+            table_data.append(row)
+
+        # Define other metrics with descriptions
+        other_metrics = [
             ("accuracy", "Overall fraction of correct predictions"),
             ("precision", "How many predicted positives were actually positive?"),
             ("recall", "How many actual positives were detected?"),
@@ -1009,7 +1106,7 @@ class ChestXRayMLPredictor:
             ("cv_std", "Cross-validation standard deviation")
         ]
 
-        for metric, description in metrics_info:
+        for metric, description in other_metrics:
             row = [metric.upper().replace('_', ' '), description]
             for model_name in self.metrics_history.keys():
                 value = self.metrics_history[model_name].get(metric, 0)
@@ -1018,13 +1115,15 @@ class ChestXRayMLPredictor:
 
         print(tabulate(table_data, headers=headers, tablefmt="grid", floatfmt=".4f"))
 
-
         print("\n" + "=" * 100)
         print("MODEL RANKINGS")
         print("=" * 100)
 
         ranking_data = []
-        for metric, _ in metrics_info[:10]:
+        ranking_metrics = ['accuracy', 'precision', 'recall', 'f1_score', 'specificity',
+                           'auc_roc', 'mcc', 'kappa', 'calibration_error']
+
+        for metric in ranking_metrics:
             sorted_models = sorted(self.metrics_history.items(),
                                    key=lambda x: x[1].get(metric, 0), reverse=True)
             ranking_row = [metric.upper().replace('_', ' ')]
@@ -1045,7 +1144,7 @@ class ChestXRayMLPredictor:
         for model_name in self.metrics_history.keys():
             total_rank = 0
             count = 0
-            for metric, _ in metrics_info[:10]:  # Use first 10 metrics for overall ranking
+            for metric in ranking_metrics[:10]:  # Use first 10 metrics for overall ranking
                 sorted_models = sorted(self.metrics_history.items(),
                                        key=lambda x: x[1].get(metric, 0), reverse=True)
                 rank = [m[0] for m in sorted_models].index(model_name) + 1
@@ -1073,6 +1172,9 @@ class ChestXRayMLPredictor:
         print("\n" + "=" * 100)
         print("COMPREHENSIVE MODEL EVALUATION")
         print("=" * 100)
+
+        # Measure inference times first
+        self.measure_all_inference_times(X_test)
 
         results = {}
 
@@ -1105,6 +1207,9 @@ class ChestXRayMLPredictor:
 
             results[model_name] = metrics
 
+        # Print timing summary
+        self.print_timing_summary()
+
         # Create consolidated visualization
         self.create_consolidated_metrics_visualization()
 
@@ -1134,7 +1239,12 @@ class ChestXRayMLPredictor:
             img_processed = img_scaled
 
         model = self.models[model_name]
+
+        # Measure inference time
+        start_time = time.perf_counter()
         prediction = model.predict(img_processed)[0]
+        inference_time = (time.perf_counter() - start_time) * 1000  # Convert to ms
+
         prediction_proba = model.predict_proba(img_processed)[0] if hasattr(model, 'predict_proba') else [0, 0]
 
         result = self.class_names[prediction]
@@ -1148,7 +1258,8 @@ class ChestXRayMLPredictor:
             ["Image", os.path.basename(image_path)],
             ["Model", model_name.upper()],
             ["Prediction", result],
-            ["Confidence", f"{confidence:.4f}"]
+            ["Confidence", f"{confidence:.4f}"],
+            ["Inference Time", f"{inference_time:.2f} ms"]
         ]
 
         if hasattr(model, 'predict_proba'):
@@ -1158,7 +1269,7 @@ class ChestXRayMLPredictor:
         print(tabulate(pred_table, tablefmt="grid"))
         print(f"{'=' * 60}")
 
-        return result, confidence
+        return result, confidence, inference_time
 
     def save_models(self, filename='chest_xray_models.pkl'):
         """Save all models and preprocessors"""
@@ -1169,7 +1280,9 @@ class ChestXRayMLPredictor:
             'img_height': self.img_height,
             'img_width': self.img_width,
             'class_names': self.class_names,
-            'metrics_history': self.metrics_history
+            'metrics_history': self.metrics_history,
+            'training_times': self.training_times,
+            'inference_times': self.inference_times
         }
         joblib.dump(save_data, filename)
         print(f"✅ Models and metrics saved to {filename}")
@@ -1187,6 +1300,8 @@ class ChestXRayMLPredictor:
         self.img_width = save_data['img_width']
         self.class_names = save_data['class_names']
         self.metrics_history = save_data.get('metrics_history', {})
+        self.training_times = save_data.get('training_times', {})
+        self.inference_times = save_data.get('inference_times', {})
 
         print(f"✅ Models loaded from {filename}")
 
