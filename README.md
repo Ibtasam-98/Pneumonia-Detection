@@ -88,28 +88,6 @@ SVM outperformed all other architectures, particularly in **clinical metrics** a
 - **Random Forest:** 100 estimators, no max depth limitation
 - **Hyperparameter Tuning:** GridSearchCV with 3-fold cross-validation
 - **Class Imbalance Handling:** Balanced weighting strategies
-
----
-## Repository Structure
-
-```text
-Pneumonia-Detection/
-├── app.py                    # Streamlit web application
-├── main.py                   # Main training and evaluation script
-├── config.py                 # Configuration settings
-├── data_loader.py           # Dataset loading and preprocessing
-├── feature_extractor.py      # Feature extraction utilities
-├── predictor.py             # Model prediction functions
-├── evaluator.py             # Comprehensive evaluation metrics
-├── visualizer.py            # Visualization functions
-├── utils.py                 # Utility functions
-├── requirements.txt         # Python dependencies
-├── README.md               # Project documentation
-├── dataset/                # Chest X-ray dataset
-│   └── chest_xray/          # Raw image data
-├── model/                  # Saved .joblib or .pkl model files
-└── visualizations/         # Generated ROC curves & confusion matrices
-
 ---
 
 ## Web Application
