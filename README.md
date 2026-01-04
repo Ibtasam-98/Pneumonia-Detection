@@ -37,10 +37,64 @@ SVM outperformed all other architectures, particularly in **clinical metrics** a
 
 ### 2. Confusion Matrix Analysis
 #### SVM - Confusion Matrix (Test Set: 1172 images)
-+-----------------+----------------------+----------------------+
-| | Predicted Positive | Predicted Negative |
-+=================+======================+======================+
-| Actual Positive | TP: 834 (Pneumonia) | FP: 38 |
-+-----------------+----------------------+----------------------+
-| Actual Negative | FN: 21 | TN: 279 (Normal) |
-+-----------------+----------------------+----------------------+
+* **True Positives (TP):** 834 (Pneumonia correctly identified)
+* **True Negatives (TN):** 279 (Normal correctly identified)
+* **False Positives (FP):** 38 (Normal incorrectly predicted as pneumonia)
+* **False Negatives (FN):** 21 (Pneumonia incorrectly predicted as normal)
+* **Specificity:** 0.8801
+* **Negative Predictive Value (NPV):** 0.9300
+
+### 3. Statistical Validation
+* **5-Fold Stratified Cross-Validation:** SVM Mean Accuracy: 0.9532 ± 0.0052
+* **Bootstrapping (n=50):** SVM 95% CI for Accuracy: **[0.9501, 0.9723]**
+* **Overfitting Analysis:** SVM shows minimal overfitting (Gap: 0.0217) compared to Random Forest (Gap: 0.0794)
+
+---
+## 🏥 Clinical Significance
+
+### Diagnostic Performance
+1. **High Sensitivity:** All models achieved >97% sensitivity, ensuring reliable pneumonia detection
+2. **Superior Specificity:** SVM's 88.01% specificity reduces false positives by 20-26 cases per 1000 patients compared to alternatives
+3. **Reliable Probability Estimates:** SVM's low calibration error (0.0554) provides trustworthy risk assessment
+
+### Computational Efficiency
+* **Fastest Inference:** SVM processes images in 0.16 ms/image - suitable for real-time clinical use
+* **Memory Efficient:** Compact model size (2.1 MB) enables deployment in resource-constrained settings
+* **Web-Ready:** Full integration into interactive Streamlit application
+
+---
+
+## 🛠️ Methodology & Implementation
+
+### Data Pipeline
+1. **Dataset:** 5,856 pediatric chest X-rays from Guangzhou Women and Children's Medical Center
+   - Training: 5,216 images (74.3% Pneumonia, 25.7% Normal)
+   - Testing: 624 images (62.5% Pneumonia, 37.5% Normal)
+   - Class Imbalance Ratio: 2.70:1 (Pneumonia:Normal)
+
+2. **Preprocessing:**
+   - Resize to 100×100 pixels
+   - Grayscale conversion and intensity normalization
+   - Data augmentation (rotation, flipping, brightness adjustment)
+
+3. **Feature Engineering:**
+   - Extract statistical, gradient, and texture features
+   - Dimensionality Reduction: PCA to 50 components (81.27% variance explained)
+   - Feature standardization for model compatibility
+
+### Model Training
+- **SVM:** RBF kernel with C=1.0, gamma='scale'
+- **KNN:** k=11 neighbors, Manhattan distance, uniform weights
+- **Random Forest:** 100 estimators, no max depth limitation
+- **Hyperparameter Tuning:** GridSearchCV with 3-fold cross-validation
+- **Class Imbalance Handling:** Balanced weighting strategies
+
+---
+
+## Web Application
+
+### Features
+- **Real-time Prediction:** Upload chest X-ray for instant analysis
+- **Multi-Model Consensus:** Compare predictions from SVM, KNN, and Random Forest
+- **Clinical Visualizations:** Probability distributions, confidence scores, risk indicators
+- **Export Results:** Download predictions and visualizations for medical records
