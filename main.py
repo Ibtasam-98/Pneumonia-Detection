@@ -25,7 +25,6 @@ class ChestXRayMLPredictor:
         self.models = {}
 
     def train(self, args):
-        """Train mode"""
         try:
             if not self.data_loader.debug_dataset_structure(args.data_dir):
                 print("Dataset structure issue detected.")
