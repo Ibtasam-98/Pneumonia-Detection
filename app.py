@@ -6,17 +6,11 @@ with Machine Learning Models
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import cv2
 import os
-import time
 from PIL import Image
 import plotly.graph_objects as go
 import plotly.express as px
-from plotly.subplots import make_subplots
-import io
-import base64
 from datetime import datetime
 import sys
 import tempfile
