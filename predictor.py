@@ -6,7 +6,6 @@ import joblib
 from typing import Optional, Tuple, Dict
 from tabulate import tabulate
 
-# Change these imports
 from config import config
 from data_loader import ChestXRayDataLoader
 from feature_extractor import FeatureExtractor
