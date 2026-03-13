@@ -4,45 +4,52 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 from tabulate import tabulate
+from typing import Tuple, Optional, List
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 
-from config import Config
+# Change this line - remove package prefix
+from config import config
+from utils import print_header, print_success, print_warning, print_error
 
 
-class DataLoader:
-    def __init__(self, config=None):
-        self.config = config or Config()
-        self.scaler = StandardScaler()
-        self.pca = None
-        self.features = None
-        self.labels = None
+class ChestXRayDataLoader:
+    """Handles loading and preprocessing of chest X-ray images"""
 
-    def debug_dataset_structure(self, data_dir=Config.DEFAULT_DATA_DIR):
-        """Debug function to check dataset structure"""
-        print("\n🔍 Debugging dataset structure...")
+    def __init__(self, data_dir: str = None):
+        """
+        Initialize the data loader
 
-        if not os.path.exists(data_dir):
-            print(f"❌ Main dataset directory not found: {data_dir}")
+        Args:
+            data_dir: Path to the dataset directory
+        """
+        self.data_dir = data_dir or config.DEFAULT_DATA_DIR
+        self.img_height, self.img_width = config.get_image_size()
+        self.class_names = config.CLASS_NAMES
+        self.splits = ['train', 'test', 'val']
+
+    def debug_structure(self) -> bool:
+        """Debug dataset structure"""
+        print_header("Debugging Dataset Structure")
+
+        if not os.path.exists(self.data_dir):
+            print_error(f"Main dataset directory not found: {self.data_dir}")
             return False
 
-        splits = ['train', 'test', 'val']
         table_data = []
 
-        for split in splits:
-            split_path = os.path.join(data_dir, split)
+        for split in self.splits:
+            split_path = os.path.join(self.data_dir, split)
 
             if os.path.exists(split_path):
                 split_data = [split]
                 total_images = 0
 
-                for class_name in self.config.CLASS_NAMES:
+                for class_name in self.class_names:
                     class_path = os.path.join(split_path, class_name)
                     if os.path.exists(class_path):
                         image_files = [f for f in os.listdir(class_path)
-                                       if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
+                                     if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
                         num_images = len(image_files)
                         split_data.append(f"{num_images}")
                         total_images += num_images
@@ -56,31 +63,42 @@ class DataLoader:
 
         headers = ["Split", "NORMAL", "PNEUMONIA", "Total"]
         print(tabulate(table_data, headers=headers, tablefmt="grid"))
+
         return True
 
-    def load_and_preprocess_images(self, data_dir=Config.DEFAULT_DATA_DIR):
-        """Load and preprocess images from directory"""
-        print("Loading and preprocessing images...")
+    def load_images(self, data_dir: str = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """
+        Load and preprocess images from directory
+
+        Args:
+            data_dir: Path to dataset directory (overrides instance data_dir)
+
+        Returns:
+            Tuple of (features array, labels array)
+        """
+        if data_dir:
+            self.data_dir = data_dir
+
+        print_header("Loading and Preprocessing Images")
 
         features = []
         labels = []
-        splits = ['train', 'test', 'val']
 
-        for split in splits:
-            split_path = os.path.join(data_dir, split)
+        for split in self.splits:
+            split_path = os.path.join(self.data_dir, split)
             if not os.path.exists(split_path):
-                print(f"Warning: {split_path} not found, skipping...")
+                print_warning(f"{split_path} not found, skipping...")
                 continue
 
-            for class_name in self.config.CLASS_NAMES:
+            for class_name in self.class_names:
                 class_path = os.path.join(split_path, class_name)
                 if not os.path.exists(class_path):
-                    print(f"Warning: {class_path} not found, skipping...")
+                    print_warning(f"{class_path} not found, skipping...")
                     continue
 
                 print(f"Processing {split}/{class_name}...")
                 image_files = [f for f in os.listdir(class_path)
-                               if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
+                             if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
 
                 for image_file in tqdm(image_files, desc=f"{split}/{class_name}"):
                     img_path = os.path.join(class_path, image_file)
@@ -91,81 +109,71 @@ class DataLoader:
                             continue
 
                         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                        img = cv2.resize(img, (self.config.IMG_WIDTH, self.config.IMG_HEIGHT))
+                        img = cv2.resize(img, (self.img_width, self.img_height))
                         img_flattened = img.flatten()
 
                         features.append(img_flattened)
                         labels.append(class_name)
 
-                    except Exception:
+                    except Exception as e:
+                        print_warning(f"Error loading {img_path}: {e}")
                         continue
 
         if len(features) == 0:
-            print("❌ No images were loaded.")
+            print_error("No images were loaded.")
             return None, None
 
-        self.features = np.array(features)
-        self.labels = np.array(labels)
+        features_array = np.array(features)
+        labels_array = np.array(labels)
 
-        print(f"\n✅ Loaded {len(features)} images")
-        self._print_class_distribution()
+        print_success(f"Loaded {len(features)} images")
 
-        return self.features, self.labels
-
-    def _print_class_distribution(self):
-        """Print class distribution table"""
-        unique, counts = np.unique(self.labels, return_counts=True)
+        # Print class distribution
+        unique, counts = np.unique(labels_array, return_counts=True)
         table_data = []
         for class_name, count in zip(unique, counts):
-            percentage = (count / len(self.labels)) * 100
+            percentage = (count / len(labels_array)) * 100
             table_data.append([class_name, count, f"{percentage:.2f}%"])
 
         print(tabulate(table_data, headers=["Class", "Count", "Percentage"], tablefmt="grid"))
 
-    def preprocess_data(self, use_advanced_features=False, use_pca=False, n_components=50):
-        """Preprocess the data for ML models"""
-        print("Preprocessing data...")
+        return features_array, labels_array
+
+    def prepare_data(self, features: np.ndarray, labels: np.ndarray,
+                    test_size: float = None, random_state: int = None) -> Tuple:
+        """
+        Prepare data for training by encoding labels and splitting
+
+        Args:
+            features: Feature array
+            labels: Label array
+            test_size: Test set size (overrides config)
+            random_state: Random state (overrides config)
+
+        Returns:
+            Tuple of (X_train, X_test, y_train, y_test, label_encoder)
+        """
+        test_size = test_size or config.TEST_SIZE
+        random_state = random_state or config.RANDOM_STATE
 
         le = LabelEncoder()
-        y_encoded = le.fit_transform(self.labels)
-
-        if use_advanced_features:
-            from feature_extractor import FeatureExtractor
-            extractor = FeatureExtractor(self.config)
-            X_processed = extractor.extract_advanced_features(self.features)
-        else:
-            X_processed = self.features
+        y_encoded = le.fit_transform(labels)
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X_processed, y_encoded,
-            test_size=self.config.TEST_SIZE,
-            random_state=self.config.RANDOM_STATE,
-            stratify=y_encoded
+            features, y_encoded, test_size=test_size,
+            random_state=random_state, stratify=y_encoded
         )
 
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
+        return X_train, X_test, y_train, y_test, le
 
-        if use_pca:
-            print(f"Applying PCA with {n_components} components...")
-            self.pca = PCA(n_components=n_components, random_state=self.config.RANDOM_STATE)
-            X_train_final = self.pca.fit_transform(X_train_scaled)
-            X_test_final = self.pca.transform(X_test_scaled)
-            explained_variance = np.sum(self.pca.explained_variance_ratio_)
-            print(f"Explained variance ratio: {explained_variance:.4f}")
-        else:
-            X_train_final = X_train_scaled
-            X_test_final = X_test_scaled
+    def get_class_weights(self, labels: np.ndarray) -> dict:
+        """Calculate class weights for imbalanced datasets"""
+        unique, counts = np.unique(labels, return_counts=True)
+        n_samples = len(labels)
+        n_classes = len(unique)
 
-        print(f"Training set shape: {X_train_final.shape}")
-        print(f"Test set shape: {X_test_final.shape}")
+        weights = {}
+        for cls, count in zip(unique, counts):
+            weights[cls] = n_samples / (n_classes * count)
 
-        return X_train_final, X_test_final, y_train, y_test
-
-    def get_preprocessors(self):
-        """Get scaler and PCA transformers"""
-        return self.scaler, self.pca
-
-    def get_features_labels(self):
-        """Get features and labels"""
-        return self.features, self.labels
+        return weights
