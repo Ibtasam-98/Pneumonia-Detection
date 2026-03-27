@@ -323,7 +323,6 @@ class ChestXRayMLPredictor:
 
         print_success(f"Models loaded from {filename}")
 
-        # Print available models
         table_data = [[model_name, type(model.model).__name__]
                      for model_name, model in self.models.items()]
         print(tabulate(table_data, headers=["Model Name", "Type"], tablefmt="grid"))
