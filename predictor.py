@@ -307,7 +307,6 @@ class ChestXRayMLPredictor:
                 model.model = model_obj
                 self.models[name] = model
 
-        # Load feature extractor
         if 'feature_extractor' in save_data:
             self.feature_extractor = save_data['feature_extractor']
         else:
