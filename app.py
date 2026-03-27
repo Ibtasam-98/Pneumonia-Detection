@@ -609,7 +609,6 @@ with tab2:
 
             st.dataframe(pd.DataFrame(overfitting_data), use_container_width=True)
 
-# ==================== TAB 3: PREDICTION ====================
 with tab3:
     st.markdown('<div class="sub-header">Pneumonia Prediction</div>', unsafe_allow_html=True)
 
